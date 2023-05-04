@@ -21,7 +21,7 @@ from pyproj import Transformer
 from scipy import interpolate
 from shapely.geometry import Point
 
-import cht_meteo.misc.fileops as fo
+import cht_meteo.misc.fileops as fops
 from cht_meteo.misc.misc_tools import interp2
 
 date_format = "%Y%m%d %H%M%S"
@@ -121,7 +121,7 @@ class MeteoGrid:
         #        module = __import__(self.source.module_name)
         module = importlib.import_module("cht.meteo." + self.source.module_name)
 
-        fo.mkdir(path)
+        fops.mkdir(path)
 
         if self.source.type == "forecast":
             # Need to check on previous cycles
@@ -212,7 +212,7 @@ class MeteoGrid:
 
                         if data:
                             if not os.path.exists(cycle_path):
-                                fo.mkdir(cycle_path)
+                                fops.mkdir(cycle_path)
                             self.save_to_nc(cycle_path, data)
                             self.last_analysis_time = t
                             for d in data:
@@ -237,7 +237,7 @@ class MeteoGrid:
                 print(
                     "Downloading data from cycle : " + t_current.strftime("%Y%m%d_%Hz")
                 )
-                fo.mkdir(cycle_path)
+                fops.mkdir(cycle_path)
                 data = module.download(
                     parameters, self.x_range, self.y_range, [t_current, t1], t
                 )
@@ -356,14 +356,14 @@ class MeteoGrid:
                 requested_files.append(None)
 
             # Make list of all cyc
-            all_cycle_paths = fo.list_folders(os.path.join(self.path, "*"))
+            all_cycle_paths = fops.list_folders(os.path.join(self.path, "*"))
             # Loop through all cycle paths
             for cycle_path in all_cycle_paths:
                 t = datetime.datetime.strptime(cycle_path[-12:-1], "%Y%m%d_%H")
                 # Check if path falls within requested range
                 if t >= time_range[0] and t <= time_range[1]:
                     # Find all times available in this cycle
-                    files_in_cycle = fo.list_files(os.path.join(cycle_path, "*.nc"))
+                    files_in_cycle = fops.list_files(os.path.join(cycle_path, "*.nc"))
                     for file in files_in_cycle:
                         t_file = datetime.datetime.strptime(file[-16:-3], "%Y%m%d_%H%M")
                         if t_file in requested_times:
@@ -395,7 +395,7 @@ class MeteoGrid:
 
             requested_files = []
             requested_times = []
-            files_in_cycle = fo.list_files(os.path.join(self.path, "*.nc"))
+            files_in_cycle = fops.list_files(os.path.join(self.path, "*.nc"))
             #            for file in files_in_cycle:
             for ifile in range(0, len(files_in_cycle), tstride):
                 file = files_in_cycle[ifile]
