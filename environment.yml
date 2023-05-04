@@ -1,0 +1,22 @@
+name: cht_meteo
+
+channels:
+  - conda-forge
+
+dependencies:
+  - black
+  - build
+  - mypy
+  - pip
+  - numpy
+  - scipy
+  - siphon
+  - xarray
+  - pyproj
+  - metpy
+  - netCDF4
+  - pandas
+  - shapely
+  - pytest
+  - python=3.10
+  - twine
