@@ -595,7 +595,7 @@ def met_get(**kwargs):
             print("[ERROR]: Must provide '--end'")
             exit(1)
         if not args.timestep:
-            print("[ERROR]: Must provice '--timestep'")
+            print("[ERROR]: Must provide '--timestep'")
             exit(1)
 
         # ...Building the request

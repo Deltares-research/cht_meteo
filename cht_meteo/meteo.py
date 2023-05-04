@@ -584,7 +584,7 @@ class MeteoGrid:
                 fid.write(
                     "### All text on a line behind the first # is parsed as commentary\n"
                 )
-                fid.write("### Additional commments\n")
+                fid.write("### Additional comments\n")
 
             fid.write(
                 "FileVersion      =   "
