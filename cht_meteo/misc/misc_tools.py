@@ -40,7 +40,7 @@ def findreplace(file_name, str1, str2):
     fin.close()
     # open the input file in write mode
     fin = open(file_name, "wt")
-    # overrite the input file with the resulting data
+    # overwrite the input file with the resulting data
     fin.write(data)
     # close the file
     fin.close()

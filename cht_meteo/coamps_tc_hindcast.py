@@ -77,7 +77,7 @@ def download(
     )  # get time-step of requested time assuming that the time-step stays the same
     ntime = len(requested_times)
 
-    # Get storms from endpoint metada
+    # Get storms from endpoint metadata
     storms = check_coamps(apikey, endpoint)
 
     # Check if forecast exists for the selected dates and make a dataframe

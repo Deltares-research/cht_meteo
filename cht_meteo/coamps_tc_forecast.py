@@ -64,7 +64,7 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time, resolutio
     )  # get time-step of requested time assuming that the time-step stays the same
     ntime = len(requested_times)
 
-    # Get storms from endpoint metada
+    # Get storms from endpoint metadata
     storms = check_coamps(apikey, endpoint)
 
     # Check if forecast exists for the selected dates and make a dataframe
@@ -187,7 +187,7 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time, resolutio
             else:
                 dss[st][var] = None
 
-    # if no data could be downloaded (CHECK AGIAN WHAT SHOULD HAPPEN IN THIS CASE)
+    # if no data could be downloaded (CHECK AGAIN WHAT SHOULD HAPPEN IN THIS CASE)
     if all(
         [dss[k][kk] is None for k in list(dss.keys()) for kk in list(dss[k].keys())]
     ):
@@ -663,7 +663,7 @@ def met_get(**kwargs):
             print("[ERROR]: Must provide '--end'")
             exit(1)
         if not args.timestep:
-            print("[ERROR]: Must provice '--timestep'")
+            print("[ERROR]: Must provide '--timestep'")
             exit(1)
 
         # ...Building the request
