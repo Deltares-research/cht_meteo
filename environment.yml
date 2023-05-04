@@ -16,7 +16,9 @@ dependencies:
   - metpy
   - netCDF4
   - pandas
+  - geopandas
   - shapely
+  - yaml
   - pytest
   - python=3.10
   - twine

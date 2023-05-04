@@ -4,39 +4,41 @@
 Date:       04/07/2022
 """
 
-import os
-from siphon.catalog import TDSCatalog
-from xarray.backends import NetCDF4DataStore
-import xarray as xr
-import pandas as pd
-import numpy as np
-from pyproj import CRS
-from metpy.units import units
-import subprocess
-import requests
-import json
 import datetime
-import sys
+import json
+import os
 import time
-from cht.meteo import gfs_anl_0p50
+
+import numpy as np
+import pandas as pd
+import requests
+import xarray as xr
+from pyproj import CRS
 
 
-class Dataset():
-
+class Dataset:
     def __init__(self):
-
         self.quantity = None
-        self.unit     = None
-        self.time     = []
-        self.x        = None
-        self.y        = None
-        self.crs      = None
-        self.val      = None
-        self.u        = None
-        self.v        = None
+        self.unit = None
+        self.time = []
+        self.x = None
+        self.y = None
+        self.crs = None
+        self.val = None
+        self.u = None
+        self.v = None
 
-def download(param_list, lon_range, lat_range, path, prefix,
-             time_range=None, times=None, resolution=0.25):
+
+def download(
+    param_list,
+    lon_range,
+    lat_range,
+    path,
+    prefix,
+    time_range=None,
+    times=None,
+    resolution=0.25,
+):
     """Function to download coamps-tc forecasts using the scrubber tool functions
     Right now resolution is hardcoded to 0.25 degrees but this can change"""
 
@@ -44,23 +46,35 @@ def download(param_list, lon_range, lat_range, path, prefix,
     endpoint = "https://api.metget.zachcobell.com"
 
     # Connect parameters names with coamps-tc names
-    param_names = {'wind': 'wind_pressure', 'barometric_pressure': 'wind_pressure', 'precipitation': 'rain'}
-    variables = list(np.unique([param_names[name] for name in param_list])) # ['wind_pressure', 'rain']
+    param_names = {
+        "wind": "wind_pressure",
+        "barometric_pressure": "wind_pressure",
+        "precipitation": "rain",
+    }
+    variables = list(
+        np.unique([param_names[name] for name in param_list])
+    )  # ['wind_pressure', 'rain']
 
     if times is not None:
         requested_times = times
         time_range = [times[0], times[-1]]
         # Add this step to make sure there are no issues when there already some netcdf for specific times
         # since the scrubber tool can only handle a time range and specific timestep
-        requested_times = pd.date_range(start=time_range[0],
-                          end=time_range[1],
-                          freq='3H').to_pydatetime().tolist()
-    else:    
-        requested_times = pd.date_range(start=time_range[0],
-                          end=time_range[1],
-                          freq='3H').to_pydatetime().tolist()
+        requested_times = (
+            pd.date_range(start=time_range[0], end=time_range[1], freq="3H")
+            .to_pydatetime()
+            .tolist()
+        )
+    else:
+        requested_times = (
+            pd.date_range(start=time_range[0], end=time_range[1], freq="3H")
+            .to_pydatetime()
+            .tolist()
+        )
 
-    timestep = int((requested_times[1] - requested_times[0]).total_seconds())  # get time-step of requested time assuming that the time-step stays the same
+    timestep = int(
+        (requested_times[1] - requested_times[0]).total_seconds()
+    )  # get time-step of requested time assuming that the time-step stays the same
     ntime = len(requested_times)
 
     # Get storms from endpoint metada
@@ -68,19 +82,25 @@ def download(param_list, lon_range, lat_range, path, prefix,
 
     # Check if forecast exists for the selected dates and make a dataframe
     fr = pd.DataFrame(index=requested_times)
-    fr['storm_id'] = None
+    fr["storm_id"] = None
     for ti in requested_times:
         for j, storm in enumerate(storms):
             ####### CHECK WHICH times to use for range ####################
-            t1 = datetime.datetime.strptime(storm['min_forecast_date'], "%Y-%m-%d %H:%M:%S")
-            t2 = datetime.datetime.strptime(storm['max_forecast_date'], "%Y-%m-%d %H:%M:%S")
+            t1 = datetime.datetime.strptime(
+                storm["min_forecast_date"], "%Y-%m-%d %H:%M:%S"
+            )
+            t2 = datetime.datetime.strptime(
+                storm["max_forecast_date"], "%Y-%m-%d %H:%M:%S"
+            )
             # t1 = datetime.datetime.strptime(storm['latest_complete_forecast_start'], "%Y-%m-%d %H:%M:%S")
             # t2 = datetime.datetime.strptime(storm['latest_complete_forecast_end'], "%Y-%m-%d %H:%M:%S")
             if t1 <= ti <= t2:
-                fr.loc[ti, 'storm_id'] = storm['storm']  # latest available forecast for each time is saved
+                fr.loc[ti, "storm_id"] = storm[
+                    "storm"
+                ]  # latest available forecast for each time is saved
 
     # if no forecast available for any of the times return message
-    storm_log = np.array([v is not None for v in fr['storm_id'].values])
+    storm_log = np.array([v is not None for v in fr["storm_id"].to_numpy()])
     if all(~storm_log):
         # Could not find any data
         print("Could not find any data in requested range !")
@@ -88,21 +108,36 @@ def download(param_list, lon_range, lat_range, path, prefix,
         return datasets
 
     # else download period of interest with the latest available forecast for each time
-    storms_id = np.unique(fr['storm_id'][storm_log])
+    storms_id = np.unique(fr["storm_id"][storm_log])
     dss = {}  # prepare dictionary to save the datasets
     for i, st in enumerate(storms_id):
         dss[st] = {}
         for ii, var in enumerate(variables):
-            ds = met_get(domain=[['coamps-{}'.format(st),
-                                 resolution, lon_range[0], lat_range[0], lon_range[1], lat_range[1]]] ,  # list is needed here!
-                         start=requested_times[np.where(fr['storm_id'] == st)[0][0]].strftime("%Y-%m-%d %H:%M:%S"),
-                         end=requested_times[np.where(fr['storm_id'] == st)[0][-1]].strftime("%Y-%m-%d %H:%M:%S"),
-                         timestep=timestep, # hardcoded for now! CHECK!
-                         variable=var,
-                         apikey=apikey,
-                         endpoint=endpoint,
-                         output='coamps_{}_{}'.format(st, var)  # this is used for the online file creation
-                        )
+            ds = met_get(
+                domain=[
+                    [
+                        "coamps-{}".format(st),
+                        resolution,
+                        lon_range[0],
+                        lat_range[0],
+                        lon_range[1],
+                        lat_range[1],
+                    ]
+                ],  # list is needed here!
+                start=requested_times[np.where(fr["storm_id"] == st)[0][0]].strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                end=requested_times[np.where(fr["storm_id"] == st)[0][-1]].strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                timestep=timestep,  # hardcoded for now! CHECK!
+                variable=var,
+                apikey=apikey,
+                endpoint=endpoint,
+                output="coamps_{}_{}".format(
+                    st, var
+                ),  # this is used for the online file creation
+            )
             if ds is not None:
                 dss[st][var] = ds[0]
             else:
@@ -120,9 +155,9 @@ def download(param_list, lon_range, lat_range, path, prefix,
     for key in dss[storms_id[0]].keys():
         if dss[storms_id[0]][key] is not None:
             data0 = dss[storms_id[0]][key]
-            lon = np.array(data0['lon'])
-            lat = np.array(data0['lat'])
-            if lat[1]-lat[0] > 0:  # lat should be in descending order
+            lon = np.array(data0["lon"])
+            lat = np.array(data0["lat"])
+            if lat[1] - lat[0] > 0:  # lat should be in descending order
                 lat = lat[::-1]
                 reverse = True
             else:
@@ -132,30 +167,31 @@ def download(param_list, lon_range, lat_range, path, prefix,
             ncols = len(lon)
 
     # initialize matrices
-    for dataset in datasets:        
+    for dataset in datasets:
         dataset.x = lon
         dataset.y = lat
-        if dataset.quantity == "wind":                    
-            dataset.u    = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN            
-            dataset.v    = np.empty((ntime, nrows, ncols))                
-            dataset.v[:] = np.NaN            
+        if dataset.quantity == "wind":
+            dataset.u = np.empty((ntime, nrows, ncols))
+            dataset.u[:] = np.NaN
+            dataset.v = np.empty((ntime, nrows, ncols))
+            dataset.v[:] = np.NaN
         else:
-            dataset.val    = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN            
-    
+            dataset.val = np.empty((ntime, nrows, ncols))
+            dataset.val[:] = np.NaN
+
     for it, time_i in enumerate(requested_times):
-        storm_id = fr['storm_id'][it]
+        storm_id = fr["storm_id"][it]
 
         if storm_id is None:
             print("No forecast available for {}".format(time_i))
             continue
 
-        model_ind = np.where(fr.index[fr['storm_id'] == storm_id] == time_i)[0][0]  # this is the index of the time for the specific storm forecast
+        model_ind = np.where(fr.index[fr["storm_id"] == storm_id] == time_i)[0][
+            0
+        ]  # this is the index of the time for the specific storm forecast
 
         # Loop through requested parameters
         for ind, param in enumerate(param_list):
-            
             dataset = datasets[ind]
             dataset.time.append(time_i)
 
@@ -168,65 +204,80 @@ def download(param_list, lon_range, lat_range, path, prefix,
 
                 if not okay:
                     # File not found, on to the next parameter
-                    print("Warning! " + storm_id + '_'+ param_names[param] + " was not found on server")
+                    print(
+                        "Warning! "
+                        + storm_id
+                        + "_"
+                        + param_names[param]
+                        + " was not found on server"
+                    )
                     makezeros = True
-                    #continue
-                print(storm_id + '_'+ param_names[param] + " : " + param)
+                    # continue
+                print(storm_id + "_" + param_names[param] + " : " + param)
 
                 if okay:
                     if param == "wind":
                         data = dss[storm_id][param_names[param]]
-                        u = data['wind_u']
-                        v = data['wind_v']
+                        u = data["wind_u"]
+                        v = data["wind_v"]
                         dataset.unit = u.units
                         u = u.metpy.unit_array.squeeze()
                         v = v.metpy.unit_array.squeeze()
 
                         if reverse:
-                            dataset.u[it,:,:] = np.array(u[model_ind, ::-1, :])
-                            dataset.v[it,:,:] = np.array(v[model_ind, ::-1, :])
+                            dataset.u[it, :, :] = np.array(u[model_ind, ::-1, :])
+                            dataset.v[it, :, :] = np.array(v[model_ind, ::-1, :])
                         else:
-                            dataset.u[it,:,:] = np.array(u[model_ind, :, :])
-                            dataset.v[it,:,:] = np.array(v[model_ind, :, :])
+                            dataset.u[it, :, :] = np.array(u[model_ind, :, :])
+                            dataset.v[it, :, :] = np.array(v[model_ind, :, :])
                     else:
                         # Other scalar variables
-        #                fac = 1.0
+                        #                fac = 1.0
                         if param == "barometric_pressure":
                             var_name = "mslp"
                         elif param == "precipitation":
-                            var_name = 'rain' # Check!
-        #                    fac = 1.0
+                            var_name = "rain"  # Check!
+                        #                    fac = 1.0
                         data = dss[storm_id][param_names[param]]
-                        val          = data[var_name]
+                        val = data[var_name]
                         # Added this check to ensure that pressure is in Pa
                         if param == "barometric_pressure":
-                            if val.units == 'mb':
+                            if val.units == "mb":
                                 val = val * 100
-                                val.attrs['units'] = 'Pa'
+                                val.attrs["units"] = "Pa"
                         dataset.unit = val.units
-                        val          = np.array(val.metpy.unit_array.squeeze())
+                        val = np.array(val.metpy.unit_array.squeeze())
                         if reverse:
                             dataset.val[it, :, :] = np.array(val[model_ind, ::-1, :])
                         else:
                             dataset.val[it, :, :] = np.array(val[model_ind, :, :])
 
-                elif makezeros: # add zeros
+                elif makezeros:  # add zeros
                     if param == "wind":
                         dataset.u[:] = 0
                         dataset.v[:] = 0
-                        dataset.unit = 'm/s'
-                        print(param + " was not found on server ... --> using 0.0 m/s instead !!!")
+                        dataset.unit = "m/s"
+                        print(
+                            param
+                            + " was not found on server ... --> using 0.0 m/s instead !!!"
+                        )
 
                     if param == "precipitation":
                         dataset.val[:] = 0
-                        dataset.unit = 'm/s'
-                        print(param + " was not found on server ... --> using 0.0 m/s instead !!!")
+                        dataset.unit = "m/s"
+                        print(
+                            param
+                            + " was not found on server ... --> using 0.0 m/s instead !!!"
+                        )
 
                     if param == "barometric_pressure":
                         dataset.val[:] = 102000.0
-                        dataset.unit = 'Pa'
-                        print(param + " was not found on server ... --> using 102000.0 Pa instead !!!")
-            except:
+                        dataset.unit = "Pa"
+                        print(
+                            param
+                            + " was not found on server ... --> using 102000.0 Pa instead !!!"
+                        )
+            except Exception:
                 print("Could not download data")
 
         # Write data to netcdf
@@ -237,9 +288,7 @@ def download(param_list, lon_range, lat_range, path, prefix,
 
         okay = False
         for ind, dataset in enumerate(datasets):
-
             if dataset.quantity == "wind":
-
                 uu = dataset.u[it, :, :]
                 vv = dataset.v[it, :, :]
 
@@ -247,30 +296,37 @@ def download(param_list, lon_range, lat_range, path, prefix,
                 if not np.all(np.isnan(uu)) and not np.all(np.isnan(vv)):
                     okay = True
 
-                    da = xr.DataArray(uu, coords=[("lat", dataset.y), ("lon", dataset.x)],
-                                      attrs=dict(long_name="u component", unit=dataset.unit))
+                    da = xr.DataArray(
+                        uu,
+                        coords=[("lat", dataset.y), ("lon", dataset.x)],
+                        attrs=dict(long_name="u component", unit=dataset.unit),
+                    )
                     ds["wind_u"] = da
 
-                    da = xr.DataArray(vv, coords=[("lat", dataset.y), ("lon", dataset.x)],
-                                      attrs=dict(long_name="v component", unit=dataset.unit))
+                    da = xr.DataArray(
+                        vv,
+                        coords=[("lat", dataset.y), ("lon", dataset.x)],
+                        attrs=dict(long_name="v component", unit=dataset.unit),
+                    )
                     ds["wind_v"] = da
 
             else:
-
                 val = dataset.val[it, :, :]
 
                 # if not np.any(np.isnan(val)): # need to check this!
                 if not np.all(np.isnan(val)):
-                    
                     okay = True
 
-                    da = xr.DataArray(val, coords=[("lat", dataset.y), ("lon", dataset.x)],
-                                      attrs=dict(long_name=dataset.quantity, unit=dataset.unit))
+                    da = xr.DataArray(
+                        val,
+                        coords=[("lat", dataset.y), ("lon", dataset.x)],
+                        attrs=dict(long_name=dataset.quantity, unit=dataset.unit),
+                    )
 
                     ds[dataset.quantity] = da
         if okay:
             # Save info on which storm forecast was used from the coamps-tc
-            ds.attrs = {'coamps_storm_id': storm_id}
+            ds.attrs = {"coamps_storm_id": storm_id}
             # Only write to file if there is any data
             ds.to_netcdf(path=full_file_name)
 
@@ -279,26 +335,17 @@ def download(param_list, lon_range, lat_range, path, prefix,
 
 def check_coamps(apikey, endpoint):
     """Read metadata of available forecasts from endpoint and returns a dictionary of the available storms"""
-    headers = {'x-api-key': apikey}
+    headers = {"x-api-key": apikey}
     response_API = requests.get("{}/status".format(endpoint), headers=headers)
     data = json.loads(response_API.text)
-    storms = data['body']['data']['metget']['coamps-tc']
+    storms = data["body"]["data"]["metget"]["coamps-tc"]
 
     return storms
 
 
-def valid_datetime_type(arg_datetime_str) -> datetime:
-    try:
-        return datetime.strptime(arg_datetime_str, "%Y-%m-%d %H:%M")
-    except ValueError:
-        msg = "Given DateTime ({0}) not valid! Expected format: 'YYYY-MM-DD HH:mm'".format(
-            arg_datetime_str
-        )
-        raise argparse.ArgumentTypeError(msg)
-
-
 def parse_domain_data(domain_list: list, level) -> dict:
     import warnings
+
     AVAILABLE_MODELS = {
         "gfs": "gfs-ncep",
         "nam": "nam-ncep",
@@ -383,8 +430,10 @@ def make_metget_request(endpoint, apikey, request_json):
 
 def download_metget_data(data_id, endpoint, apikey, sleeptime, max_wait):
     from datetime import datetime, timedelta
+
     # from netCDF4 import Dataset
     import xarray as xr
+
     # ...Status check
     headers = {"x-api-key": apikey}
     request_json = {"request": data_id}
@@ -449,14 +498,16 @@ def download_metget_data(data_id, endpoint, apikey, sleeptime, max_wait):
             url = data_url + "/" + f
             # ds = Dataset('name', memory=requests.get(url).content)
             try:
-                ds = xr.open_dataset(url + '#mode=bytes') # Added this last part to allow opening with xarray
-            except:
+                ds = xr.open_dataset(
+                    url + "#mode=bytes"
+                )  # Added this last part to allow opening with xarray
+            except Exception:
                 from netCDF4 import Dataset
+
                 data = requests.get(url).content
-                ds0 = Dataset('temp', memory=data)
+                ds0 = Dataset("temp", memory=data)
                 ds = xr.open_dataset(xr.backends.NetCDF4DataStore(ds0))
             ds_list.append(ds)
-
 
         return ds_list
     else:
@@ -484,11 +535,11 @@ def download_metget_data(data_id, endpoint, apikey, sleeptime, max_wait):
 
 
 def met_get(**kwargs):
-    """"based on the get_metget_data.py script but instead of downloading a ntecdf files it returns an xr.dataset
+    """ "based on the get_metget_data.py script but instead of downloading a ntecdf files it returns an xr.dataset
     in memory"""
-    import types
-    import socket
     import getpass
+    import socket
+    import types
 
     AVAILABLE_VARIABLES = {"wind_pressure", "rain", "temperature", "humidity", "ice"}
     AVAILABLE_FORMATS = {"ascii", "owi-ascii", "adcirc-netcdf", "hec-netcdf", "delft3d"}
@@ -498,18 +549,29 @@ def met_get(**kwargs):
     for name in kwargs.keys():
         exec('args.{} = kwargs["{}"]'.format(name, name))
 
-    optional = {'analysis': False, 'multiple_forecasts': True,
-                'format': 'hec-netcdf', 'variable': 'wind_pressure', 'check_interval': 30,
-                'max_wait': 24, 'strict': True, 'backfile': True, 'epsg': 4326, 'dryrun': False,
-                'request': None, 'compression': False, 'endpoint': None, 'apikey': None
-                }
+    optional = {
+        "analysis": False,
+        "multiple_forecasts": True,
+        "format": "hec-netcdf",
+        "variable": "wind_pressure",
+        "check_interval": 30,
+        "max_wait": 24,
+        "strict": True,
+        "backfile": True,
+        "epsg": 4326,
+        "dryrun": False,
+        "request": None,
+        "compression": False,
+        "endpoint": None,
+        "apikey": None,
+    }
 
     for key in optional.keys():
         if key not in kwargs:
             exec('args.{} = optional["{}"]'.format(key, key))
 
     if not args.endpoint:
-        if not "METGET_ENDPOINT" in os.environ:
+        if "METGET_ENDPOINT" not in os.environ:
             raise RuntimeError("No endpoint found.")
         else:
             endpoint = os.environ["METGET_ENDPOINT"]
@@ -517,7 +579,7 @@ def met_get(**kwargs):
         endpoint = args.endpoint
 
     if not args.apikey:
-        if not "METGET_API_KEY" in os.environ:
+        if "METGET_API_KEY" not in os.environ:
             raise RuntimeError("No API key was found.")
         else:
             apikey = os.environ["METGET_API_KEY"]
@@ -597,5 +659,3 @@ def met_get(**kwargs):
             args.request, endpoint, apikey, args.check_interval, args.max_wait
         )
     return ds_list
-
-
