@@ -119,7 +119,7 @@ class MeteoGrid:
             path = self.path
 
         #        module = __import__(self.source.module_name)
-        module = importlib.import_module("cht.meteo." + self.source.module_name)
+        module = importlib.import_module("cht_meteo." + self.source.module_name)
 
         fops.mkdir(path)
 
