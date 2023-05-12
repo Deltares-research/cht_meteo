@@ -1,5 +1,4 @@
 import os
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -57,7 +56,7 @@ def delete_file(file_path):
                     pid = proc.pid
                     # Terminate the process
                     os.kill(pid, 9)
-        except Exception as e:
+        except Exception:
             pass
     # Delete the file
     try:
