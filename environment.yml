@@ -8,6 +8,8 @@ dependencies:
   - build
   - mypy
   - pip
+  - pip:
+    - git+https://github.com/Deltares/cht_cyclones.git
   - numpy
   - scipy
   - siphon

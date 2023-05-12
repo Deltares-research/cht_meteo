@@ -1,15 +1,16 @@
-# import os
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 
+import psutil
 from pyproj import CRS
 
 from cht_meteo.meteo import MeteoGrid, MeteoSource
 
-path = Path().absolute() / "tests"
-
 
 def test_download_meteo():
+    path = Path(__file__).parent
     params = ["wind", "barometric_pressure", "precipitation"]
     lat = 32.77
     lon = -79.95
@@ -42,5 +43,24 @@ def test_download_meteo():
     assert gfs_conus.quantity[1].name == "barometric_pressure"
     assert gfs_conus.quantity[0].u.dtype == "float64"
 
-    # Remove downloaded file
-    # os.remove(path.joinpath("gfs_anl_0p50_us_southeast.20230101_0000.nc"))
+    del gfs_conus, gfs_source
+
+    delete_file(str(path.joinpath("gfs_anl_0p50_us_southeast.20230101_0000.nc")))
+
+
+def delete_file(file_path):
+    # Get the process ID of the process holding the file handle
+    for proc in psutil.process_iter():
+        try:
+            for file in proc.open_files():
+                if file.path == file_path:
+                    pid = proc.pid
+                    # Terminate the process
+                    os.kill(pid, 9)
+        except Exception as e:
+            pass
+    # Delete the file
+    try:
+        os.remove(file_path)
+    except FileNotFoundError:
+        print("File already removed")
