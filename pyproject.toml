@@ -30,8 +30,9 @@ zip-safe = true
 [tool.setuptools.dynamic]
 version = { attr = "cht_meteo.__version__" }
 
-[tool.setuptools.packages]
-find = {namespaces = false}
+[tool.setuptools.packages.find]
+include = ["cht_meteo","cht_meteo.*"]
+exclude = ["tests","tests.*"]
 
 
 [tool.setuptools.package-data]
