@@ -8,6 +8,7 @@ name = "cht_meteo"
 #description = "Combining of tidal components to time series"
 readme = "README.md"
 authors = [
+    { name = "Maarten van Ormondt", email = "maarten.vanormondt@deltares.nl"},
     { name = "Julian Hofer", email = "Julian.Hofer@deltares.nl" },
     { name = "Sarwan Peiter", email = "Sarwan.Peiter@deltares.nl" },
 ]
@@ -29,13 +30,35 @@ zip-safe = true
 [tool.setuptools.dynamic]
 version = { attr = "cht_meteo.__version__" }
 
-[tool.setuptools.packages.find]
-include = ["cht_meteo"]
+[tool.setuptools.packages]
+find = {namespaces = false}
+
 
 [tool.setuptools.package-data]
 "cht_observations" = ["py.typed"]
 
 # TODO
-#[project.urls]
+[project.urls]
+Source = "https://github.com/Deltares/cht_meteo"
 #Documentation = "https://deltares.github.io/CoastalHazardTools"
-#Source = "https://github.com/Deltares/CoastalHazardTools"
+
+[tool.bumpver]
+current_version = "2023.1001-alpha"
+version_pattern = "YYYY.BUILD[-TAG]"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+]
+"README.md" = [
+    "{version}",
+    "{pep440_version}",
+]
+"cht_meteo/__init__.py" = ["{version}"] 
+"cht_meteo/misc/__init__.py" = ["{version}"]
+
+
