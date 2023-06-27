@@ -48,7 +48,7 @@ version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
 tag = true
-push = true
+push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
@@ -58,7 +58,7 @@ push = true
     "{version}",
     "{pep440_version}",
 ]
-"cht_meteo/__init__.py" = ["{version}"] 
-"cht_meteo/misc/__init__.py" = ["{version}"]
+"cht_meteo/__init__.py" = ["{__version__}"] 
+"cht_meteo/misc/__init__.py" = ["{__version__}"]
 
 
