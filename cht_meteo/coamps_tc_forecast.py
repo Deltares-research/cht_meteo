@@ -16,7 +16,6 @@ from pyproj import CRS
 
 from cht_meteo import gfs_forecast_0p25
 
-
 class Dataset:
     def __init__(self):
         self.quantity = None
