@@ -17,8 +17,8 @@ from scipy import interpolate
 from pyproj import CRS
 from pyproj import Transformer
 
-from cht.misc.misc_tools import interp2
-import cht.misc.fileops as fo
+from cht_utils.misc_tools import interp2
+import cht_utils.fileops as fo
 
 # Added for TCs
 from cht_cyclones.tropical_cyclone import TropicalCyclone
@@ -224,7 +224,7 @@ class MeteoGrid():
         
         
 #        module = __import__(self.source.module_name)
-        module = importlib.import_module("cht.meteo." + self.source.module_name)
+        module = importlib.import_module("cht_meteo." + self.source.module_name)
 
         fo.mkdir(path)
         

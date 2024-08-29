@@ -9,8 +9,8 @@ Created on Fri Sep  9 12:01:21 2022
 
 import datetime
 import matplotlib.pyplot as plt
-from cht.meteo.meteo import MeteoSource, MeteoGrid
-from cht.meteo.meteo import filter_cyclones_TCvitals
+from cht_meteo.meteo import MeteoSource, MeteoGrid
+from cht_meteo.meteo import filter_cyclones_TCvitals
 
 # Define a track
 source = MeteoSource("coamps", "coamps_tc_forecast", "forecast",

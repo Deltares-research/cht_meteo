@@ -17,12 +17,12 @@ from scipy import interpolate
 from pyproj import CRS
 from pyproj import Transformer
 
-from cht.misc.misc_tools import interp2
-import cht.misc.fileops as fo
+from cht_utils.misc_tools import interp2
+import cht_utils.fileops as fo
 
 # Added for TCs
 from cht_cyclones.tropical_cyclone import TropicalCyclone
-from cht.meteo.coamps_utils import get_storm_track
+from cht_meteo.coamps_utils import get_storm_track
 import geopandas as gpd
 from shapely.geometry import Point
 date_format     = "%Y%m%d %H%M%S"
@@ -117,7 +117,7 @@ class MeteoGrid():
         
         
 #        module = __import__(self.source.module_name)
-        module = importlib.import_module("cht.meteo." + self.source.module_name)
+        module = importlib.import_module("cht_meteo." + self.source.module_name)
 
         # Check if coamps-tc forecast is used, and if yes, read the metget config path
         kwargs={}

@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from pyproj import CRS
 import datetime
-from cht.meteo import gfs_forecast_0p25
+from cht_meteo import gfs_forecast_0p25
 from .coamps_utils import *
 
 class Dataset():
