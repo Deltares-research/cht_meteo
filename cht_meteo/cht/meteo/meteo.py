@@ -22,7 +22,7 @@ import cht_utils.fileops as fo
 
 # Added for TCs
 from cht_cyclones.tropical_cyclone import TropicalCyclone
-from cht_meteo.coamps_utils import get_storm_track
+from cht_meteo.cht.meteo.coamps_utils import get_storm_track
 import geopandas as gpd
 from shapely.geometry import Point
 date_format     = "%Y%m%d %H%M%S"
@@ -117,7 +117,7 @@ class MeteoGrid():
         
         
 #        module = __import__(self.source.module_name)
-        module = importlib.import_module("cht_meteo." + self.source.module_name)
+        module = importlib.import_module("cht_meteo.cht.meteo." + self.source.module_name)
 
         # Check if coamps-tc forecast is used, and if yes, read the metget config path
         kwargs={}
@@ -315,7 +315,7 @@ class MeteoGrid():
                     da = xr.DataArray(uu,
                                           coords=[("lat", dd.y),
                                                   ("lon", dd.x)])
-                    # TODO how to save and load source data?
+                    # # TODO how to save and load source data?
                     if dd.source:
                         if isinstance(dd.source, list):
                             da.attrs['source'] = dd.source[it]
@@ -527,7 +527,21 @@ class MeteoGrid():
         interp = interpolate.RegularGridInterpolator((self.y, self.x), v0)
 
         # Return numpy array with interpolated values
-        v = interp((lat, lon))
+
+        # Find points outside of grid
+        iout = np.where((lon<np.min(self.x)) | (lon>np.max(self.x)) | (lat<np.min(self.y)) | (lat>np.max(self.y)))
+        lon1 = np.maximum(lon, np.min(self.x))
+        lon1 = np.minimum(lon1, np.max(self.x))
+        lat1 = np.maximum(lat, np.min(self.y))
+        lat1 = np.minimum(lat1, np.max(self.y)) 
+        # Find points outside of grid
+        v = interp((lat1, lon1))
+        # Set values outside of grid to no_data_value
+        if quantity == "barometric_pressure":
+            no_data_value = 101300.0
+        else:
+            no_data_value = 0.0
+        v[iout] = no_data_value
         return v
 
     def read_from_delft3d(self, file_name, crs=None):
