@@ -22,7 +22,7 @@ import cht_utils.fileops as fo
 
 # Added for TCs
 from cht_cyclones.tropical_cyclone import TropicalCyclone
-from cht_meteo.coamps_utils import get_storm_track
+from cht_meteo.cht.meteo.coamps_utils import get_storm_track
 import geopandas as gpd
 from shapely.geometry import Point
 date_format     = "%Y%m%d %H%M%S"
