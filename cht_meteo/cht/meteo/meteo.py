@@ -117,7 +117,7 @@ class MeteoGrid():
         
         
 #        module = __import__(self.source.module_name)
-        module = importlib.import_module("cht_meteo." + self.source.module_name)
+        module = importlib.import_module("cht_meteo.cht.meteo." + self.source.module_name)
 
         # Check if coamps-tc forecast is used, and if yes, read the metget config path
         kwargs={}
@@ -315,7 +315,7 @@ class MeteoGrid():
                     da = xr.DataArray(uu,
                                           coords=[("lat", dd.y),
                                                   ("lon", dd.x)])
-                    # TODO how to save and load source data?
+                    # # TODO how to save and load source data?
                     if dd.source:
                         if isinstance(dd.source, list):
                             da.attrs['source'] = dd.source[it]
@@ -485,6 +485,64 @@ class MeteoGrid():
         meteo_source.set_index('date', inplace=True)
         self.meteo_source = meteo_source        
 
+    def interpolate(self, quantity, requested_time, lon, lat, no_data_value=0.0):
+        # Find index of quantity in self.variables list
+        if quantity == "wind_u" or quantity == "wind_x":
+            quantity = "wind"
+            ivec     = True
+            col      = 0
+        elif quantity == "wind_v" or quantity == "wind_y":
+            quantity = "wind"
+            ivec     = True
+            col      = 1
+        else:
+            ivec     = False
+
+        if quantity not in self.parameters:
+            # print("Quantity " + quantity + " not found in meteo dataset")
+            # V is empty array with zeros
+            v = np.zeros(np.shape(lat)) + no_data_value
+            return v
+
+        ind = self.parameters.index(quantity)
+        t   = self.time
+        # No interpolation for now
+        it = np.where(t>=requested_time)
+        # Check if it is not empty
+        if len(it[0]) == 0:
+            # V is empty array with zeros
+            v = np.zeros(np.shape(lat)) + no_data_value
+            return v
+        
+        it = it[0][0]
+        if ivec:
+            if col == 0:
+                v0 = self.quantity[ind].u[it,:,:]
+            else:
+                v0 = self.quantity[ind].v[it,:,:]
+        else:
+            v0 = self.quantity[ind].val[it,:,:]
+
+        # Make interpolator
+        interp = interpolate.RegularGridInterpolator((self.y, self.x), v0)
+
+        # Return numpy array with interpolated values
+
+        # Find points outside of grid
+        iout = np.where((lon<np.min(self.x)) | (lon>np.max(self.x)) | (lat<np.min(self.y)) | (lat>np.max(self.y)))
+        lon1 = np.maximum(lon, np.min(self.x))
+        lon1 = np.minimum(lon1, np.max(self.x))
+        lat1 = np.maximum(lat, np.min(self.y))
+        lat1 = np.minimum(lat1, np.max(self.y)) 
+        # Find points outside of grid
+        v = interp((lat1, lon1))
+        # Set values outside of grid to no_data_value
+        if quantity == "barometric_pressure":
+            no_data_value = 101300.0
+        else:
+            no_data_value = 0.0
+        v[iout] = no_data_value
+        return v
 
     def read_from_delft3d(self, file_name, crs=None):
         pass
