@@ -6,8 +6,10 @@ import pandas as pd
 from pyproj import CRS
 from pyproj import Transformer
 from scipy.interpolate import RegularGridInterpolator
+import time
 
 from .dataset_to_delft3d import write_to_delft3d_ascii
+from .dataset_to_json_wind import write_wind_to_json
 
 import cht_utils.fileops as fo
 
@@ -24,6 +26,7 @@ class MeteoDataset():
         self.lat_range = None          # Latitude range of the dataset
         self.var_names = ["wind_u", "wind_v", "barometric_pressure", "precipitation"] # Variable names in the dataset
         self.crs = CRS(4326)           # Coordinate reference system of the dataset
+        self.tau = 0                   # Time interval in hours between cycle and data
 
         # Loop through kwargs to set attributes
         reserved_keys = ["x", "y", "lon", "lat", "time"]    
@@ -186,13 +189,13 @@ class MeteoDataset():
         if "tau" in kwargs:
             tau = kwargs["tau"]
         else:
-            tau = 0
+            tau = self.tau
 
+        last_cycle_time = None
         if "last_cycle" in kwargs:
-            last_cycle_string = kwargs["last_cycle"]
-            last_cycle_time = datetime.datetime.strptime(last_cycle_string, "%Y%m%d_%H")
-        else:
-            last_cycle_time = None
+            if kwargs["last_cycle"] is not None:
+                # last_cycle_time = datetime.datetime.strptime(kwargs["last_cycle"], "%Y%m%d_%H")
+                last_cycle_time = kwargs["last_cycle"]
 
         # Subsets are only used when there are subsets with different resolutions (e.g. as in COAMPS-TC) 
         if len(self.subset) > 0:
@@ -225,6 +228,8 @@ class MeteoDataset():
                 # Make list of all cycles
                 all_cycle_paths = fo.list_folders(os.path.join(self.path, "*"))
 
+                icycle = -1
+
                 # Loop through all cycle paths
                 for cycle_path in all_cycle_paths:
 
@@ -245,6 +250,8 @@ class MeteoDataset():
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(os.path.join(cycle_path, "*" + subsetstr + "*.nc"))
 
+                    icycle += 1
+
                     # Loop through all files in this cycle
                     for ifile, file in enumerate(files_in_cycle):
 
@@ -254,10 +261,10 @@ class MeteoDataset():
                         if ifile == 0:
                             self.last_analysis_time = t_file
 
-                        if tau > 0:                            
+                        if tau > 0 and icycle > 0:                            
                             # Compute time interval between cycle and file
-                            th = (t_file - t_cycle).total_seconds() / 3600
-                            if th > tau:
+                            th = int((t_file - t_cycle).total_seconds() / 3600)
+                            if th < tau:
                                 # We can skip this file
                                 continue
 
@@ -482,6 +489,8 @@ class MeteoDataset():
             t = self.ds["time"].values
 
         if time_range is not None:
+            # convert values in time_range to np.datetime64
+            time_range = [np.datetime64(t) for t in time_range]
             t = t[(t>=time_range[0]) & (t<=time_range[1])]
 
         # Create new dataset
@@ -502,16 +511,16 @@ class MeteoDataset():
         # Loop through variables
         for var_name in self.var_names:
             da = self.ds[var_name].copy()
-            for it, time in enumerate(self.ds["time"].values):
+            for it, t in enumerate(self.ds["time"].values):
                 # Get data
-                v = dataset.interpolate_variable(var_name, time, xg, yg, crs=self.crs)
+                v = dataset.interpolate_variable(var_name, t, xg, yg, crs=self.crs)
                 # Set points in v equal to points in original data vori where vori already has a value
-                vori = da.loc[dict(time=time)].values[:]
+                vori = da.loc[dict(time=t)].values[:]
                 not_nan = np.where(~np.isnan(vori))
                 v[not_nan] = vori[not_nan]
-                da.loc[dict(time=time)] = v
+                da.loc[dict(time=t)] = v
 
-            self.ds[var_name] = da    
+            self.ds[var_name] = da
 
     def merge_datasets(self, datasets, **kwargs):
         """Merge datasets. This is useful when we have multiple datasets with different resolutions."""
@@ -519,7 +528,7 @@ class MeteoDataset():
         for dataset in datasets:
             self.interpolate_dataset(dataset)
     
-    def interpolate_variable(self, var_name: str, time: datetime.datetime, x: np.array, y: np.array, crs=None, fill_missing_data=False):
+    def interpolate_variable(self, var_name: str, t: datetime.datetime, x: np.array, y: np.array, crs=None, fill_missing_data=False):
         """Returns numpy array with interpolated values of quantity at requested_time and lon, lat. If quantity is a vector, the function returns the x-component of the vector. If the quantity is not found, the function returns an array with zeros."""
 
         # Check shape of x and y. They can be either:
@@ -563,25 +572,34 @@ class MeteoDataset():
 
         # Loop in reverse order to get the highest resolution data first
         for isub in range(nsub - 1, -1, -1):
-
+            
             if subsets:
                 ds = self.subset[isub].ds
             else:
                 ds = self.ds
 
+            # Check if t is a numpy.datetime64
+            if not isinstance(t, np.datetime64):
+                t = np.datetime64(t)
+
             # Get data
-            ds = ds.interp(time=time)
+            if t in ds["time"].values[:]:
+                # Get data at time t
+                da = ds[var_name].sel(time=t)
+            else:
+                # Interpolate data at time t                
+                da = ds[var_name].interp(time=t)
 
             # Get horizontal coordinates
             if self.crs.is_geographic:
-                x = ds["lon"].values
-                y = ds["lat"].values
+                x = da["lon"].values
+                y = da["lat"].values
             else:
-                x = ds["x"].values
-                y = ds["y"].values
+                x = da["x"].values
+                y = da["y"].values
 
             # Make interpolator
-            interp = RegularGridInterpolator((y, x), ds[var_name].values[:])
+            interp = RegularGridInterpolator((y, x), da.values[:])
 
             # Find points outside of grid
             iout = np.where((xg<np.min(x)) | (xg>np.max(x)) | (yg<np.min(y)) | (yg>np.max(y)))
@@ -639,6 +657,9 @@ class MeteoDataset():
             write_to_delft3d_ascii(self, file_name, version, path, header_comments, refdate, parameters, time_range)
         # else:
         #     write_to_delft3d_netcdf(self, file_name, version, path, header_comments, refdate, parameters, time_range)
+
+    def wind_to_json(self, file_name, time_range=None, js=True, iref=1):
+        write_wind_to_json(self, file_name, time_range=time_range, iref=iref, js=js)
 
     def get_coordinates(self, *args):
         """Returns the horizontal coordinates of the dataset."""

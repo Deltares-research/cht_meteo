@@ -37,7 +37,7 @@ class MeteoDatabase():
                 md = MeteoDatasetGFSAnalysis0p50(name=dataset_name, path=dataset_path, **kwargs)
             else:
                 md = MeteoDataset(name=dataset_name)
-                print(f"Error: source {source_name} not recognized")
+                print(f"Error while reading meteo database : source {source_name} not recognized")
 
         else:
             # Use generic meteo dataset (this does not have download functionality)
@@ -58,7 +58,7 @@ class MeteoDatabase():
 
         # Check if the file exists
         if not os.path.exists(filename):
-            print(f"Error: file {filename} does not exist")
+            print(f"Error while reading meteo database : file {filename} does not exist")
             return    
 
         # Read the toml file
@@ -76,10 +76,13 @@ class MeteoDatabase():
                 lat_range = meteo_dataset["y_range"]
             else:
                 lat_range = None
+            if "tau" in meteo_dataset:
+                tau = meteo_dataset["tau"]
+            else:
+                tau = 0
 
             self.add_dataset(meteo_dataset["name"],
                             source_name=meteo_dataset["source"],
                             lon_range=lon_range,
-                            lat_range=lat_range)
-
-meteo_database = MeteoDatabase()
+                            lat_range=lat_range,
+                            tau=tau)

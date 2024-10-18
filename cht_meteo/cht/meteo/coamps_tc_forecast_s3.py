@@ -4,6 +4,7 @@ import datetime
 import urllib
 import tarfile as trf
 import xarray as xr
+import requests
 
 from cht_utils import fileops as fo
 from .dataset import MeteoDataset
@@ -50,6 +51,11 @@ class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
             # Throw error if storm_number is not provided            
             print("Error: storm_number not provided")
             return
+        
+        if "only_track" in kwargs:
+            only_track = kwargs["only_track"]
+        else:
+            only_track = False
 
         # For COAMPS-TC we always get the entire dataset (lon_range, lat_range time_range are not used)
 
@@ -63,11 +69,19 @@ class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
 
         # Make folder for the forecast
         forecast_path = os.path.join(self.path, cycle_time_meteo) # Folder to store the forecast netcdf files
-        tar_file_path = os.path.join(forecast_path, "_TMP")  # Temporary folder to store the tar file
-
-        # Make folder for the forecast
         os.makedirs(forecast_path, exist_ok=True) 
-        os.makedirs(tar_file_path, exist_ok=True) 
+
+        # Start with the track file
+        get_storm_track(forecast_path, year, storm_number, cycle_time_coamps)
+
+        only_track = True
+        if only_track:
+            # No need to download the gridded forecast, apparently
+            return
+
+        # Make folder for the temporary files
+        tar_file_path = os.path.join(forecast_path, "_TMP")  # Temporary folder to store the tar file
+        os.makedirs(tar_file_path, exist_ok=True)
 
         tar_file_name = storm_number + "_" + cycle_time_coamps + "_netcdf.tar"
 
@@ -92,6 +106,7 @@ class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
                 tar.extract(member, path=tar_file_path)
 
         # Convert all three resolutions to meteo format
+        print("Converting COAMPS-TC netcdf files to meteo netcdf files")
         for subset in self.subset:
             res = subset.name
             # Get list of all the files in the _TMP/netcdf folder
@@ -106,6 +121,9 @@ class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
 
         # Remove the temporary folder
         fo.delete_folder(tar_file_path)
+
+        # Also try to download the track file
+        track_file_name = storm_number + "_" + cycle_time_coamps + "_track.txt"
 
 def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
  
@@ -141,3 +159,23 @@ def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
     # Close the raw netcdf file
     dsin.close()
 
+def get_storm_track(track_path:str, year:int, storm:str, cycle:str):
+    """
+    Retrieves the storm track data for a given year, storm, and cycle.
+
+    Parameters:
+    year (int): The year of the storm track data.
+    storm (str): The name of the storm.
+    cycle (str): The cycle of the storm track data.
+
+    Returns:
+    bytes: The content of the storm track data.
+
+    """
+    try:
+        filename = os.path.join(track_path, f"TRK_COAMPS_CTCX_3_{cycle}_{storm}.trk")
+        url = f"https://coamps-tc-data.s3.us-east-2.amazonaws.com/deterministic/realtime/{year}/{storm}/{cycle}/TRK_COAMPS_CTCX_3_{cycle}_{storm}"
+        urllib.request.urlretrieve(url, filename)
+    except Exception as e:
+        print(f"Error downloading {url}")
+        print(e)
