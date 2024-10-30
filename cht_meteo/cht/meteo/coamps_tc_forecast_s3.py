@@ -15,7 +15,7 @@ class MeteoSubset:
         self.moving = moving
         self.ds = xr.Dataset()
 
-class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
+class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
 
     # Inherit from MeteoDomain
     def __init__(self, **kwargs):
@@ -36,7 +36,7 @@ class MeteoDatasetCOAMPSTCForecast(MeteoDataset):
     
 
     def download_forecast_cycle(self, **kwargs):
-        """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
+        """Downloads COAMPS-TC forecast cycle from S3 for a given storm number and cycle time"""
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]

@@ -3,7 +3,7 @@ import os
 import toml
 
 from .dataset import MeteoDataset
-from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecast
+from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecastS3
 from .gfs_forecast_0p25_v3 import MeteoDatasetGFSForecast0p25
 from .gfs_anl_0p50_05 import MeteoDatasetGFSAnalysis0p50
 
@@ -30,7 +30,7 @@ class MeteoDatabase():
 
         if source_name is not None:
             if source_name == "coamps_tc_forecast":
-                md =  MeteoDatasetCOAMPSTCForecast(name=dataset_name, path=dataset_path, **kwargs)
+                md =  MeteoDatasetCOAMPSTCForecastS3(name=dataset_name, path=dataset_path, **kwargs)
             elif source_name == "gfs_forecast_0p25":
                 md = MeteoDatasetGFSForecast0p25(name=dataset_name, path=dataset_path, **kwargs)
             elif source_name == "gfs_analysis_0p50":
