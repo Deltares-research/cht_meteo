@@ -74,7 +74,6 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         # Start with the track file
         get_storm_track(forecast_path, year, storm_number, cycle_time_coamps)
 
-        only_track = True
         if only_track:
             # No need to download the gridded forecast, apparently
             return
