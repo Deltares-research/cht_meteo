@@ -27,6 +27,7 @@ class MeteoDataset():
         self.var_names = ["wind_u", "wind_v", "barometric_pressure", "precipitation"] # Variable names in the dataset
         self.crs = CRS(4326)           # Coordinate reference system of the dataset
         self.tau = 0                   # Time interval in hours between cycle and data
+        self.last_analysis_time = None # Time of last analysis in the dataset
 
         # Loop through kwargs to set attributes
         reserved_keys = ["x", "y", "lon", "lat", "time"]    
@@ -504,9 +505,13 @@ class MeteoDataset():
         # Dimensions have already been set (also time?)
         if copy_time:
             self.ds["time"] = dataset.ds["time"]
-        # Get horizontal coordinates    
-        x = self.ds["lon"].values
-        y = self.ds["lat"].values
+        # Get horizontal coordinates
+        if "x" in self.ds:
+            x = self.ds["x"].values
+            y = self.ds["y"].values
+        else: 
+            x = self.ds["lon"].values
+            y = self.ds["lat"].values
         xg, yg = np.meshgrid(x, y)
         # Loop through variables
         for var_name in self.var_names:
