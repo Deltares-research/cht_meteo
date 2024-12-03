@@ -351,7 +351,14 @@ class MeteoGrid():
 
             ds.close()
 
-    def collect(self, time_range, parameters=None, xystride=1, tstride=1):
+    def collect(self, time_range,
+                parameters=None,
+                xystride=1,
+                tstride=1,
+                last_cycle=None):
+
+        # Make last_cycle timezone unaware
+        last_cycle = last_cycle.replace(tzinfo=None)         
         
         if not parameters:
             parameters = self.parameters
@@ -371,6 +378,9 @@ class MeteoGrid():
             # Loop through all cycle paths
             for cycle_path in all_cycle_paths:
                 t = datetime.datetime.strptime(cycle_path[-12:-1], "%Y%m%d_%H")
+                if last_cycle:
+                    if t > last_cycle:
+                        continue
                 # Check if path falls within requested range
                 if t>=time_range[0] and t<=time_range[1]:
                     # Find all times available in this cycle
