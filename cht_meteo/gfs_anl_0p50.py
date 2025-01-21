@@ -105,12 +105,12 @@ def download(
         dataset.y = lat
         if dataset.quantity == "wind":
             dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
+            dataset.u[:] = np.nan
             dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.v[:] = np.nan
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val[:] = np.nan
 
     for it, time in enumerate(requested_times):
         h = time.hour

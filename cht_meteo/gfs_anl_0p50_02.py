@@ -104,7 +104,7 @@ def download(
         datasets[param].x = lon
         datasets[param].y = lat
         datasets[param].val = np.empty((ntime, nrows, ncols))
-        datasets[param].val[:] = np.NaN
+        datasets[param].val[:] = np.nan
 
     for it, time in enumerate(requested_times):
         h = time.hour

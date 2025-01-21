@@ -16,6 +16,7 @@ from pyproj import CRS
 
 from cht_meteo import gfs_forecast_0p25
 
+
 class Dataset:
     def __init__(self):
         self.quantity = None
@@ -225,12 +226,12 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time, resolutio
         ).to_pydatetime()
         if dataset.quantity == "wind":
             dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
+            dataset.u[:] = np.nan
             dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.v[:] = np.nan
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val[:] = np.nan
         datasets.append(dataset)
 
     for it, time_i in enumerate(requested_times):
