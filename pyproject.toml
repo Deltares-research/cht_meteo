@@ -59,7 +59,5 @@ push = false
     "{version}",
     "{pep440_version}",
 ]
-"cht_meteo/__init__.py" = ["{__version__}"] 
+"cht_meteo/__init__.py" = ["{__version__}"]
 "cht_meteo/misc/__init__.py" = ["{__version__}"]
-
-

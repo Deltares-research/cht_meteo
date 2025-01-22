@@ -8,7 +8,11 @@ from metget.metget_build import MetGetBuildRest
 from pyproj import CRS
 
 from cht_meteo import gfs_forecast_0p25
-from cht_meteo.cht.meteo.coamps_utils import *
+from cht_meteo.cht.meteo.coamps_utils import (
+    check_coamps,
+    get_da_from_url,
+    tc_vitals_storm,
+)
 
 
 class Dataset:
@@ -62,7 +66,7 @@ def download(
     if "override" in config:
         override = True
     else:
-        override = False
+        override = False  # noqa: F841
 
     # Connect parameters names with coamps-tc names
     param_names = {
@@ -93,7 +97,7 @@ def download(
     # Get the available storms in the Coamps-TC forecast
     try:
         coamps_storms = check_coamps(apikey, endpoint, time_range[0], time_range[1])
-    except:
+    except Exception:
         coamps_storms = {}
 
     # Get the storm names that have a forecast available for the requested cycle
@@ -104,7 +108,7 @@ def download(
         in coamps_storms[name]["cycles_complete"]
     ]
 
-    # If there are no storms availabe raise Error
+    # If there are no storms available raise Error
     if len(storms) == 0:
         raise ValueError(
             f"There are no COAMPS-TC forecasts available for cycle: {cycle_time.strftime('%Y-%m-%d %H:%M:%S')}"
@@ -261,7 +265,7 @@ def download(
             if dss[param_names[param]] is not None:
                 okay = True
                 model_t = pd.to_datetime(
-                    dss[param_names[param]].time.values
+                    dss[param_names[param]].time.to_numpy()
                 ).to_pydatetime()
                 model_t_ind = np.where(model_t == time_i.replace(tzinfo=None))[0][0]
             else:
@@ -355,7 +359,7 @@ def download(
                             time_i
                         )
                     )
-                except:
+                except Exception:
                     if param == "wind":
                         dataset.u[:] = fill_values[param]
                         dataset.v[:] = fill_values[param]

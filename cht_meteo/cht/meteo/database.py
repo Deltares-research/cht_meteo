@@ -1,13 +1,15 @@
 import os
+
 # import yaml
 import toml
 
-from .dataset import MeteoDataset
 from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecastS3
-from .gfs_forecast_0p25_v3 import MeteoDatasetGFSForecast0p25
+from .dataset import MeteoDataset
 from .gfs_anl_0p50_05 import MeteoDatasetGFSAnalysis0p50
+from .gfs_forecast_0p25_v3 import MeteoDatasetGFSForecast0p25
 
-class MeteoDatabase():
+
+class MeteoDatabase:
     def __init__(self):
         self.path = None
         self.dataset = {}
@@ -21,29 +23,36 @@ class MeteoDatabase():
 
     def list_sources(self):
         # Returns a list the available sources
-        return ["gfs_forecast", "coamps_tc_forecast"]    
+        return ["gfs_forecast", "coamps_tc_forecast"]
 
     def add_dataset(self, dataset_name, source_name, **kwargs):
-
         # Add a dataset to the database
         dataset_path = os.path.join(self.path, dataset_name)
 
         if source_name is not None:
             if source_name == "coamps_tc_forecast":
-                md =  MeteoDatasetCOAMPSTCForecastS3(name=dataset_name, path=dataset_path, **kwargs)
+                md = MeteoDatasetCOAMPSTCForecastS3(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
             elif source_name == "gfs_forecast_0p25":
-                md = MeteoDatasetGFSForecast0p25(name=dataset_name, path=dataset_path, **kwargs)
+                md = MeteoDatasetGFSForecast0p25(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
             elif source_name == "gfs_analysis_0p50":
-                md = MeteoDatasetGFSAnalysis0p50(name=dataset_name, path=dataset_path, **kwargs)
+                md = MeteoDatasetGFSAnalysis0p50(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
             else:
                 md = MeteoDataset(name=dataset_name)
-                print(f"Error while reading meteo database : source {source_name} not recognized")
+                print(
+                    f"Error while reading meteo database : source {source_name} not recognized"
+                )
 
         else:
             # Use generic meteo dataset (this does not have download functionality)
             md = MeteoDataset(name=dataset_name)
 
-        # Add to database        
+        # Add to database
         self.dataset[dataset_name] = md
 
         return md
@@ -58,8 +67,10 @@ class MeteoDatabase():
 
         # Check if the file exists
         if not os.path.exists(filename):
-            print(f"Error while reading meteo database : file {filename} does not exist")
-            return    
+            print(
+                f"Error while reading meteo database : file {filename} does not exist"
+            )
+            return
 
         # Read the toml file
         with open(filename) as f:
@@ -81,8 +92,10 @@ class MeteoDatabase():
             else:
                 tau = 0
 
-            self.add_dataset(meteo_dataset["name"],
-                            source_name=meteo_dataset["source"],
-                            lon_range=lon_range,
-                            lat_range=lat_range,
-                            tau=tau)
+            self.add_dataset(
+                meteo_dataset["name"],
+                source_name=meteo_dataset["source"],
+                lon_range=lon_range,
+                lat_range=lat_range,
+                tau=tau,
+            )

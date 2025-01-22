@@ -41,7 +41,7 @@ def download(
             .tolist()
         )
 
-    ntime = len(requested_times)
+    _ntime = len(requested_times)
 
     datasets = []
     for param in param_list:
@@ -52,9 +52,9 @@ def download(
 
     icont = False
 
-    var_wind_u = "u-component_of_wind_height_above_ground"
-    var_wind_v = "v-component_of_wind_height_above_ground"
-    var_pressure = "Pressure_reduced_to_MSL_msl"
+    _var_wind_u = "u-component_of_wind_height_above_ground"
+    _var_wind_v = "v-component_of_wind_height_above_ground"
+    _var_pressure = "Pressure_reduced_to_MSL_msl"
 
     # Get lat,lon
     for it, time in enumerate(requested_times):
@@ -105,16 +105,16 @@ def download(
 
         ds = xr.open_dataset(url)  # or engine='pydap'
 
-        i1 = np.where(ds.lat.values > lat_range[1])[0][-1]
-        i2 = np.where(ds.lat.values < lat_range[0])[0][0]
-        j1 = np.where(ds.lon.values < lon_range[0])[0][-1]
-        j2 = np.where(ds.lon.values > lon_range[1])[0][0]
+        i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
+        i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
+        j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
+        j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
 
         okay = False
 
         # Latitude and longitude
-        lat = ds.lat.values[i1:i2]
-        lon = ds.lon.values[j1:j2]
+        lat = ds.lat.to_numpy()[i1:i2]
+        lon = ds.lon.to_numpy()[j1:j2]
 
         nrows = len(lat)
         ncols = len(lon)
@@ -163,10 +163,10 @@ def download(
         month_string = time.strftime("%Y%m")
         date_string = time.strftime("%Y%m%d")
         url = base_url + month_string + "/" + date_string + "/catalog.xml"
-
+        gfs = None
         # try:
         #     gfs   = TDSCatalog(url)
-        # except:
+        # except Exception:
         #     print("Could not fetch catalogue")
         #     continue
 
@@ -249,7 +249,7 @@ def download(
                             "v-component_of_wind_height_above_ground",
                         )
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))
+                        data = xr.open_dataset(NetCDF4DataStore(data))  # noqa: F821
                         u = data["u-component_of_wind_height_above_ground"]
                         v = data["v-component_of_wind_height_above_ground"]
                         dataset.unit = u.units
@@ -275,7 +275,7 @@ def download(
                         )
                         query.variables(var_name)
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))
+                        data = xr.open_dataset(NetCDF4DataStore(data))  # noqa: F821
                         val = data[var_name]
                         dataset.unit = val.units
                         val = np.array(val.metpy.unit_array.squeeze())
@@ -314,7 +314,7 @@ def download(
                             + " was not found on server ... --> using 102000.0 Pa instead !!!"
                         )
 
-            except:
+            except Exception:
                 print("Could not download data")
 
         # Write data to netcdf

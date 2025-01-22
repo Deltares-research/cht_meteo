@@ -1,13 +1,13 @@
-
 import json
+
 import numpy as np
 
-def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
 
+def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
     # Convert numpy.datetime64 to datetime
-    time = dataset.ds.time.values.astype("M8[s]").astype("O")
-    x    = dataset.ds.lon.values
-    y    = dataset.ds.lat.values
+    time = dataset.ds.time.to_numpy().astype("M8[s]").astype("O")
+    x = dataset.ds.lon.to_numpy()
+    y = dataset.ds.lat.to_numpy()
 
     if not time_range:
         time_range = []
@@ -93,7 +93,9 @@ def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
             tstr = t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             u_list = (
-                np.flipud(np.around(dataset.ds["wind_u"].values[it, :, :], decimals=1))
+                np.flipud(
+                    np.around(dataset.ds["wind_u"].to_numpy()[it, :, :], decimals=1)
+                )
                 .flatten()
                 .tolist()
             )
@@ -102,7 +104,9 @@ def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
             dd.append(data0)
 
             v_list = (
-                np.flipud(np.around(dataset.ds["wind_v"].values[it, :, :], decimals=1))
+                np.flipud(
+                    np.around(dataset.ds["wind_v"].to_numpy()[it, :, :], decimals=1)
+                )
                 .flatten()
                 .tolist()
             )

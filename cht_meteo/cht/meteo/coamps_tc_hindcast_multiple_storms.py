@@ -8,7 +8,12 @@ from metget.metget_build import MetGetBuildRest
 from pyproj import CRS
 
 from cht_meteo import gfs_forecast_0p25
-from cht_meteo.cht.meteo.coamps_utils import *
+from cht_meteo.cht.meteo.coamps_utils import (
+    check_coamps,
+    date_transform,
+    get_da_from_url,
+    tc_vitals_storm,
+)
 
 
 class Dataset:
@@ -90,7 +95,7 @@ def download(
     # Get the available storms in the Coamps-TC forecast
     try:
         coamps_storms = check_coamps(apikey, endpoint, time_range[0])
-    except:
+    except Exception:
         coamps_storms = {}
 
     storms = [name for name in coamps_storms.keys() if int(name.split("L")[0]) < 90]
@@ -156,7 +161,7 @@ def download(
         fr.loc[ti, "storm_id"] = storm_name
 
     storm_log = np.array(
-        [v is not None for v in fr["storm_id"].values]
+        [v is not None for v in fr["storm_id"].to_numpy()]
     )  # check for which times there are forecasts from coamps-tc
     if all(~storm_log):  # If no coamps-tc data are available, gfs data are downloaded
         datasets = gfs_forecast_0p25.download(
@@ -306,7 +311,7 @@ def download(
                     )
                 )
 
-            except:
+            except Exception:
                 print("gfs data not available")
             continue
 
@@ -321,7 +326,7 @@ def download(
                 if dss[storm_id][param_names[param]] is not None:
                     okay = True
                     model_t = pd.to_datetime(
-                        dss[storm_id][param_names[param]].time.values
+                        dss[storm_id][param_names[param]].time.to_numpy()
                     ).to_pydatetime()
                     model_t_ind = np.where(model_t == time_i.replace(tzinfo=None))[0][0]
                 else:
@@ -419,7 +424,7 @@ def download(
                                 time_i
                             )
                         )
-                    except:
+                    except Exception:
                         if param == "wind":
                             dataset.u[:] = fill_values[param]
                             dataset.v[:] = fill_values[param]
@@ -443,7 +448,7 @@ def download(
                                 )
                             )
 
-            except:
+            except Exception:
                 print("Could not download data")
 
     return datasets

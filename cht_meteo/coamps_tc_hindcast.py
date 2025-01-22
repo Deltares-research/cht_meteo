@@ -348,7 +348,7 @@ def parse_domain_data(domain_list: list, level) -> dict:
 
     AVAILABLE_MODELS = {
         "gfs": "gfs-ncep",
-        "nam": "nam-ncep",
+        "name": "name-ncep",
         "hwrf": "hwrf",
         "coamps": "coamps-tc",
     }

@@ -74,7 +74,7 @@ def download(
 
             # try:
             #     gfs   = TDSCatalog(url)
-            # except:
+            # except Exception:
             #     gfs   = []
             # okay = False
             # if gfs:
@@ -91,14 +91,14 @@ def download(
             lon_range[0] = np.mod(lon_range[0], 360.0)
             lon_range[1] = np.mod(lon_range[1], 360.0)
 
-            i1 = np.where(ds.lat.values > lat_range[1])[0][-1]
-            i2 = np.where(ds.lat.values < lat_range[0])[0][0]
-            j1 = np.where(ds.lon.values < lon_range[0])[0][-1]
-            j2 = np.where(ds.lon.values > lon_range[1])[0][0]
+            i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
+            i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
+            j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
+            j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
 
             # Latitude and longitude
-            lat = ds.lat.values[i1:i2]
-            lon = ds.lon.values[j1:j2]
+            lat = ds.lat.to_numpy()[i1:i2]
+            lon = ds.lon.to_numpy()[j1:j2]
 
             nrows = len(lat)
             ncols = len(lon)
@@ -123,7 +123,7 @@ def download(
             icont = True
             break
 
-        except:
+        except Exception:
             # Try another time
             pass
 
@@ -154,7 +154,7 @@ def download(
 
         # try:
         #     gfs   = TDSCatalog(url)
-        # except:
+        # except Exception:
         #     print("Could not fetch catalogue")
         #     continue
 
@@ -214,7 +214,6 @@ def download(
 
             try:
                 okay = False
-                makezeros = False
                 # for j, ds in enumerate(gfs.datasets):
                 #     if ds==name:
                 #         okay = True
@@ -236,7 +235,7 @@ def download(
                         #                            makezeros = False
                         okay = True
                         break
-                    except:
+                    except Exception:
                         # Try again
                         #                        makezeros = True
                         pass
@@ -245,10 +244,10 @@ def download(
                     if param == "wind":
                         u = ds["u-component_of_wind_height_above_ground"][
                             0, 0, i1:i2, j1:j2
-                        ].values
+                        ].to_numpy()
                         v = ds["v-component_of_wind_height_above_ground"][
                             0, 0, i1:i2, j1:j2
-                        ].values
+                        ].to_numpy()
                         dataset.u[it, :, :] = np.array(u)
                         dataset.v[it, :, :] = np.array(v)
 
@@ -276,7 +275,7 @@ def download(
                             var_name = "Pressure_reduced_to_MSL_msl"
                         elif param == "precipitation":
                             var_name = var_prcp
-                        val = ds[var_name][0, i1:i2, j1:j2].values
+                        val = ds[var_name][0, i1:i2, j1:j2].to_numpy()
                         # #                    fac = 1.0
                         #                 query = ncss.query()
                         #                 query.lonlat_box(north=lat_range[1], \
@@ -318,7 +317,7 @@ def download(
                 #          dataset.val[:] = 102000.0
                 #          print(param + " was not found on server ... --> using 102000.0 Pa instead !!!")
 
-            except:
+            except Exception:
                 print("Could not download data")
 
         # Write data to netcdf

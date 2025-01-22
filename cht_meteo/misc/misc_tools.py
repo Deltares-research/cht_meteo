@@ -62,7 +62,7 @@ def read_json_js(file_name):
 
 def write_json_js(file_name, jsn, first_line):
     # Writes json javascript file
-    if type(jsn) == list:
+    if isinstance(jsn, list):
         f = open(file_name, "w")
         f.write(first_line + "\n")
         f.write("[\n")

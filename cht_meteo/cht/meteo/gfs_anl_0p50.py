@@ -61,7 +61,7 @@ def download(
         url = base_url + month_string + "/" + date_string + "/catalog.xml"
         try:
             gfs = TDSCatalog(url)
-        except:
+        except Exception:
             gfs = []
         cstr = "0000_000"
         name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
@@ -120,7 +120,7 @@ def download(
 
         try:
             gfs = TDSCatalog(url)
-        except:
+        except Exception:
             print("Could not fetch catalogue")
             continue
 
@@ -268,7 +268,7 @@ def download(
                             + " was not found on server ... --> using 102000.0 Pa instead !!!"
                         )
 
-            except:
+            except Exception:
                 print("Could not download data")
 
         # Write data to netcdf

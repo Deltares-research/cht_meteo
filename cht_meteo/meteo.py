@@ -1395,11 +1395,11 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
     xb = xx[ibelow]
     yb = yy[ibelow]
 
-    iin = np.where(
+    _in = np.where(
         (xb >= xlim[0]) & (xb <= xlim[1]) & (yb >= ylim[0]) & (yb <= ylim[1])
     )
-    xb = xb[iin]
-    yb = yb[iin]
+    xb = xb[_in]
+    yb = yb[_in]
 
     dx = x[1] - x[0]
     ng = round(2 * mindist / dx)
@@ -1414,10 +1414,10 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
 
             # Grid indices
             ix = np.where(x > xc)[0][0]
-            iy = np.where(y > yc)[0][0]
+            it = np.where(y > yc)[0][0]
 
-            i0 = max(iy - ng, 0)
-            i1 = min(iy + ng, np.size(y) - 1)
+            i0 = max(it - ng, 0)
+            i1 = min(it + ng, np.size(y) - 1)
             j0 = max(ix - ng, 0)
             j1 = min(ix + ng, np.size(x) - 1)
 
@@ -1431,7 +1431,7 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
             #        xxxf, yyyf = np.meshgrid(xxxf,yyyf)
             #        try:
             F = interpolate.RectBivariateSpline(xxx, yyy, np.transpose(zzz))
-            #        except:
+            #        except Exception:
             #            shite=1
             zzzf = F(xxxf, yyyf)
             i, j = np.where(zzzf == np.min(zzzf))

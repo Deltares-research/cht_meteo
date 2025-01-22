@@ -272,7 +272,7 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time, resolutio
                 if dss[storm_id][param_names[param]] is not None:
                     okay = True
                     model_t = pd.to_datetime(
-                        dss[storm_id][param_names[param]].time.values
+                        dss[storm_id][param_names[param]].time.to_numpy()
                     ).to_pydatetime()
                     model_t_ind = np.where(model_t == time_i.replace(tzinfo=None))[0][0]
                 else:
@@ -417,7 +417,7 @@ def parse_domain_data(domain_list: list, level) -> dict:
 
     AVAILABLE_MODELS = {
         "gfs": "gfs-ncep",
-        "nam": "nam-ncep",
+        "name": "name-ncep",
         "hwrf": "hwrf",
         "coamps": "coamps-tc",
     }

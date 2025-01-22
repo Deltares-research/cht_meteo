@@ -1,6 +1,8 @@
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
 
 def write_to_delft3d(
     dataset,
@@ -12,10 +14,8 @@ def write_to_delft3d(
     parameters=None,
     time_range=None,
 ):
-    
-    
     # Convert to datetime
-    time = pd.to_datetime(dataset.ds.time.values)
+    time = pd.to_datetime(dataset.ds.time.to_numpy())
 
     if not refdate:
         refdate = time[0]
@@ -283,13 +283,14 @@ def write_to_delft3d(
 
         fid.close()
 
+
 def write_wind_to_json(self, file_name, time_range=None, iref=1, js=False):
     import json
 
     if not time_range:
         time_range = []
-        time_range.append(time[0])
-        time_range.append(time[-1])
+        time_range.append(time[0])  # noqa: F821
+        time_range.append(time[-1])  # noqa: F821
 
     data = []
 
@@ -345,15 +346,15 @@ def write_wind_to_json(self, file_name, time_range=None, iref=1, js=False):
         "dy": 1.0,
     }
 
-    header["lo1"] = float(min(dataset.x) + 360.0)
-    header["lo2"] = float(max(dataset.x) + 360.0)
-    header["la1"] = float(max(dataset.y))
-    header["la2"] = float(min(dataset.y))
-    header["dx"] = float(dataset.x[1] - dataset.x[0])
-    header["dy"] = float(dataset.y[1] - dataset.y[0])
-    header["nx"] = len(dataset.x)
-    header["ny"] = len(dataset.y)
-    header["numberPoints"] = len(dataset.x) * len(dataset.y)
+    header["lo1"] = float(min(dataset.x) + 360.0)  # noqa: F821
+    header["lo2"] = float(max(dataset.x) + 360.0)  # noqa: F821
+    header["la1"] = float(max(dataset.y))  # noqa: F821
+    header["la2"] = float(min(dataset.y))  # noqa: F821
+    header["dx"] = float(dataset.x[1] - dataset.x[0])  # noqa: F821
+    header["dy"] = float(dataset.y[1] - dataset.y[0])  # noqa: F821
+    header["nx"] = len(dataset.x)  # noqa: F821
+    header["ny"] = len(dataset.y)  # noqa: F821
+    header["numberPoints"] = len(dataset.x) * len(dataset.y)  # noqa: F821
 
     header_u = header.copy()
     header_v = header.copy()
@@ -363,14 +364,14 @@ def write_wind_to_json(self, file_name, time_range=None, iref=1, js=False):
     header_v["parameterNumberName"] = "V-component_of_wind"
     header_v["parameterNumber"] = 3
 
-    for it, t in enumerate(time):
+    for it, t in enumerate(time):  # noqa: F821
         if t >= time_range[0] and t <= time_range[1]:
             dd = []
 
             tstr = t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             u_list = (
-                np.flipud(np.around(dataset.quantity[0].u[it, :, :], decimals=1))
+                np.flipud(np.around(dataset.quantity[0].u[it, :, :], decimals=1))  # noqa: F821
                 .flatten()
                 .tolist()
             )
@@ -379,7 +380,7 @@ def write_wind_to_json(self, file_name, time_range=None, iref=1, js=False):
             dd.append(data0)
 
             v_list = (
-                np.flipud(np.around(dataset.quantity[0].v[it, :, :], decimals=1))
+                np.flipud(np.around(dataset.quantity[0].v[it, :, :], decimals=1))  # noqa: F821
                 .flatten()
                 .tolist()
             )

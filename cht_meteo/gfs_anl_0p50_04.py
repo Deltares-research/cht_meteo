@@ -74,7 +74,7 @@ def download(
 
             # try:
             #     gfs   = TDSCatalog(url)
-            # except:
+            # except Exception:
             #     gfs   = []
             # okay = False
             # if gfs:
@@ -154,7 +154,7 @@ def download(
 
         # try:
         #     gfs   = TDSCatalog(url)
-        # except:
+        # except Exception:
         #     print("Could not fetch catalogue")
         #     continue
 
