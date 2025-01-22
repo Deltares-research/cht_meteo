@@ -216,8 +216,6 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                         name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
 
                 try:
-                    okay = False
-
                     print(name + " : " + param)
                     ds0 = None
                     for iattempt in range(10):
@@ -225,7 +223,6 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                             ds0 = xr.load_dataset(url + name)
                             if iattempt > 0:
                                 print("Success at attempt no " + int(iattempt + 1))
-                            okay = True
                             break
                         except Exception:
                             # Try again
