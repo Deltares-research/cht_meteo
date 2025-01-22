@@ -466,20 +466,20 @@ class MeteoGrid:
             return
 
         # Read in first file to get dimensions
-        ds = xr.open_dataset(requested_files[0])
-        # make sure dimensions are in the right order
-        ds = ds.transpose("lat", "lon", missing_dims="warn")
-        # Get dimensions
-        lon = ds["lon"][0::xystride].to_numpy()
-        if lon[0] > 180.0:
-            lon = lon - 360.0
-        lat = ds["lat"][0::xystride].to_numpy()
-        lat = np.flip(lat)
-        nrows = len(lat)
-        ncols = len(lon)
-        ntime = len(requested_times)
-        self.x = lon
-        self.y = lat
+        with xr.open_dataset(requested_files[0]) as ds:
+            # make sure dimensions are in the right order
+            ds = ds.transpose("lat", "lon", missing_dims="warn")
+            # Get dimensions
+            lon = ds["lon"][0::xystride].to_numpy()
+            if lon[0] > 180.0:
+                lon = lon - 360.0
+            lat = ds["lat"][0::xystride].to_numpy()
+            lat = np.flip(lat)
+            nrows = len(lat)
+            ncols = len(lon)
+            ntime = len(requested_times)
+            self.x = lon
+            self.y = lat
 
         for ind, param in enumerate(parameters):
             if param == "wind":
@@ -501,27 +501,28 @@ class MeteoGrid:
 
             for it, time in enumerate(requested_times):
                 # Read in file
-                ds = xr.open_dataset(requested_files[it])
-                # make sure dimensions are in the right order
-                ds = ds.transpose("lat", "lon", missing_dims="warn")
-                try:
-                    if param == "wind":
-                        uuu = ds["wind_u"].to_numpy()
-                        vvv = ds["wind_v"].to_numpy()
-                        uuu = np.flipud(uuu[0::xystride, 0::xystride])
-                        vvv = np.flipud(vvv[0::xystride, 0::xystride])
-                        matrix.u[it, :, :] = uuu
-                        matrix.v[it, :, :] = vvv
-                        meteo_source.append(ds["wind_u"].source)
-                    else:
-                        uuu = ds[param].to_numpy()
-                        uuu = np.flipud(uuu[0::xystride, 0::xystride])
-                        matrix.val[it, :, :] = uuu
-                except Exception as e:
-                    print("Could not collect " + param + " from " + requested_files[it])
-                    print(str(e))
+                with xr.open_dataset(requested_files[it]) as ds:
+                    # make sure dimensions are in the right order
+                    ds = ds.transpose("lat", "lon", missing_dims="warn")
+                    try:
+                        if param == "wind":
+                            uuu = ds["wind_u"].to_numpy()
+                            vvv = ds["wind_v"].to_numpy()
+                            uuu = np.flipud(uuu[0::xystride, 0::xystride])
+                            vvv = np.flipud(vvv[0::xystride, 0::xystride])
+                            matrix.u[it, :, :] = uuu
+                            matrix.v[it, :, :] = vvv
+                            meteo_source.append(ds["wind_u"].source)
+                        else:
+                            uuu = ds[param].to_numpy()
+                            uuu = np.flipud(uuu[0::xystride, 0::xystride])
+                            matrix.val[it, :, :] = uuu
+                    except Exception as e:
+                        print(f"Could not collect {param} from {requested_files[it]}")
+                        print(str(e))
 
-            self.quantity.append(matrix)
+                self.quantity.append(matrix)
+
         # Create a DataFrame from the generated data
         meteo_source = pd.DataFrame({"date": self.time, "value": meteo_source})
 

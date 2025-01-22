@@ -75,19 +75,18 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time, path, pre
 
         query.variables(var_name)
         data = ncss.get_data(query)
-        data = xr.open_dataset(NetCDF4DataStore(data))
+        with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+            dataset.x = np.array(ds["lon"])
+            dataset.y = np.array(ds["lat"])
 
-        dataset.x = np.array(data["lon"])
-        dataset.y = np.array(data["lat"])
+            val = ds[var_name]
+            time = find_time_var(val)
+            dataset.time = pd.to_datetime(time.data).to_pydatetime()
+            dataset.unit = val.units
+            val = val.metpy.unit_array.squeeze()
+            dataset.val = np.array(val) * fac
 
-        val = data[var_name]
-        time = find_time_var(val)
-        dataset.time = pd.to_datetime(time.data).to_pydatetime()
-        dataset.unit = val.units
-        val = val.metpy.unit_array.squeeze()
-        dataset.val = np.array(val) * fac
-
-        datasets[param] = dataset
+            datasets[param] = dataset
 
     # Write data to netcdf
 

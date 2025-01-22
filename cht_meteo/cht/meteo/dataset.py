@@ -359,11 +359,11 @@ class MeteoDataset:
             ntime = len(time_list)
 
             # Read in first file to get lons and lats
-            ds0 = xr.open_dataset(file_list[0])
-            lon = ds0["lon"].to_numpy()[:]
-            if lon[0] > 180.0:
-                lon = lon - 360.0
-            lat = ds0["lat"].to_numpy()[:]
+            with xr.open_dataset(file_list[0]) as ds0:
+                lon = ds0["lon"].to_numpy()[:]
+                if lon[0] > 180.0:
+                    lon = lon - 360.0
+                lat = ds0["lat"].to_numpy()[:]
 
             # Create new dataset
             ds = xr.Dataset()
@@ -391,16 +391,16 @@ class MeteoDataset:
             # Now loop through times
             for it, file in enumerate(file_list):
                 # Read in file
-                dsin = xr.open_dataset(file)
-                if moving:
-                    lon = dsin["lon"].to_numpy()
-                    lat = dsin["lat"].to_numpy()
-                    ds["lon"][it, :] = lon
-                    ds["lat"][it, :] = lat
-                for var in self.var_names:
-                    if var in dsin:
-                        # Get the data
-                        ds[var][it, :, :] = dsin[var].to_numpy()
+                with xr.open_dataset(file) as dsin:
+                    if moving:
+                        lon = dsin["lon"].to_numpy()
+                        lat = dsin["lat"].to_numpy()
+                        ds["lon"][it, :] = lon
+                        ds["lat"][it, :] = lat
+                    for var in self.var_names:
+                        if var in dsin:
+                            # Get the data
+                            ds[var][it, :, :] = dsin[var].to_numpy()
 
             if subsets:
                 # Store the data in the subset

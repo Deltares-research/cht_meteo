@@ -102,33 +102,34 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     "v-component_of_wind_height_above_ground",
                 )
                 ncss_data = ncss.get_data(query)
-                ds0 = xr.open_dataset(NetCDF4DataStore(ncss_data))
+                with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
+                    lat = np.array(ds0["latitude"])
+                    lat = np.flip(lat)
 
-                lat = np.array(ds0["latitude"])
-                lat = np.flip(lat)
+                    ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                    ds["lat"] = lat
+                    ds["time"] = ds0["time"]
 
-                ds["lon"] = np.array(ds0["longitude"]) - 360.0
-                ds["lat"] = lat
-                ds["time"] = ds0["time"]
-
-                ds["wind_u"] = xr.DataArray(
-                    np.flip(
-                        np.squeeze(
-                            ds0["u-component_of_wind_height_above_ground"].to_numpy()
-                        )
-                    ),
-                    dims=("time", "lat", "lon"),
-                )
-                ds["wind_v"] = xr.DataArray(
-                    np.flip(
-                        np.squeeze(
-                            ds0["v-component_of_wind_height_above_ground"].to_numpy()
-                        )
-                    ),
-                    dims=("time", "lat", "lon"),
-                )
-
-                ds0.close()
+                    ds["wind_u"] = xr.DataArray(
+                        np.flip(
+                            np.squeeze(
+                                ds0[
+                                    "u-component_of_wind_height_above_ground"
+                                ].to_numpy()
+                            )
+                        ),
+                        dims=("time", "lat", "lon"),
+                    )
+                    ds["wind_v"] = xr.DataArray(
+                        np.flip(
+                            np.squeeze(
+                                ds0[
+                                    "v-component_of_wind_height_above_ground"
+                                ].to_numpy()
+                            )
+                        ),
+                        dims=("time", "lat", "lon"),
+                    )
 
             else:
                 # Other scalar variables
@@ -149,24 +150,21 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 ).time_range(time_range[0], time_range[1])
                 query.variables(var_name)
                 ncss_data = ncss.get_data(query)
-                ds0 = xr.open_dataset(NetCDF4DataStore(ncss_data))
+                with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
+                    # Check if lon, lat and time are already in the dataset
+                    if "lon" not in ds or "lat" not in ds or "time" not in ds:
+                        ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                        lat = np.array(ds0["latitude"])
+                        lat = np.flip(lat)
+                        ds["lat"] = lat
+                        ds["time"] = ds0["time"]
 
-                # Check if lon, lat and time are already in the dataset
-                if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                    ds["lon"] = np.array(ds0["longitude"]) - 360.0
-                    lat = np.array(ds0["latitude"])
-                    lat = np.flip(lat)
-                    ds["lat"] = lat
-                    ds["time"] = ds0["time"]
+                    v = np.flip(np.squeeze(ds0[var_name].to_numpy()))
 
-                v = np.flip(np.squeeze(ds0[var_name].to_numpy()))
+                    if param == "precipitation":
+                        v = v * fac
 
-                if param == "precipitation":
-                    v = v * fac
-
-                ds[param] = xr.DataArray(v, dims=("time", "lat", "lon"))
-
-                ds0.close()
+                    ds[param] = xr.DataArray(v, dims=("time", "lat", "lon"))
 
         write2nc(ds, self.name, os.path.join(self.path, cycle_name))
 

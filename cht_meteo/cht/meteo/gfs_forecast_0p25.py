@@ -75,24 +75,24 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
                 "v-component_of_wind_height_above_ground",
             )
             data = ncss.get_data(query)
-            data = xr.open_dataset(NetCDF4DataStore(data))
-            try:
-                dataset.x = np.array(data["lon"])
-                dataset.y = np.array(data["lat"])
-            except Exception:
-                dataset.x = np.array(data["longitude"])
-                dataset.y = np.array(data["latitude"])
-            #           time   = data['time']
+            with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+                try:
+                    dataset.x = np.array(ds["lon"])
+                    dataset.y = np.array(ds["lat"])
+                except Exception:
+                    dataset.x = np.array(ds["longitude"])
+                    dataset.y = np.array(ds["latitude"])
+                #           time   = ds['time']
 
-            u = data["u-component_of_wind_height_above_ground"]
-            time = find_time_var(u)
-            dataset.time = pd.to_datetime(time.data).to_pydatetime()
-            dataset.unit = u.units
-            u = u.metpy.unit_array.squeeze()
-            dataset.u = np.array(u)
-            v = data["v-component_of_wind_height_above_ground"]
-            v = v.metpy.unit_array.squeeze()
-            dataset.v = np.array(v)
+                u = ds["u-component_of_wind_height_above_ground"]
+                time = find_time_var(u)
+                dataset.time = pd.to_datetime(time.data).to_pydatetime()
+                dataset.unit = u.units
+                u = u.metpy.unit_array.squeeze()
+                dataset.u = np.array(u)
+                v = ds["v-component_of_wind_height_above_ground"]
+                v = v.metpy.unit_array.squeeze()
+                dataset.v = np.array(v)
 
         else:
             # Other scalar variables
@@ -116,23 +116,23 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
             ).time_range(time_range[0], time_range[1])
             query.variables(var_name)
             data = ncss.get_data(query)
-            data = xr.open_dataset(NetCDF4DataStore(data))
+            with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+                try:
+                    dataset.x = np.array(data["lon"])
+                    dataset.y = np.array(data["lat"])
+                except Exception:
+                    dataset.x = np.array(data["longitude"])
+                    dataset.y = np.array(data["latitude"])
+                #            time   = data['time']
+                #            d.time = pd.to_datetime(time.data).to_pydatetime()
 
-            try:
-                dataset.x = np.array(data["lon"])
-                dataset.y = np.array(data["lat"])
-            except Exception:
-                dataset.x = np.array(data["longitude"])
-                dataset.y = np.array(data["latitude"])
-            #            time   = data['time']
-            #            d.time = pd.to_datetime(time.data).to_pydatetime()
+                val = data[var_name]
+                time = find_time_var(val)
+                dataset.time = pd.to_datetime(time.data).to_pydatetime()
+                dataset.unit = val.units
+                val = val.metpy.unit_array.squeeze()
+                dataset.val = np.array(val) * fac
 
-            val = data[var_name]
-            time = find_time_var(val)
-            dataset.time = pd.to_datetime(time.data).to_pydatetime()
-            dataset.unit = val.units
-            val = val.metpy.unit_array.squeeze()
-            dataset.val = np.array(val) * fac
         # Get source name for each time step
         taus = [
             int(

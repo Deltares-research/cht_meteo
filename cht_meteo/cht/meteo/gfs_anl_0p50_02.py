@@ -84,14 +84,15 @@ def download(
         ).vertical_level(10.0)
         query.variables("u-component_of_wind_height_above_ground")
         data = ncss.get_data(query)
-        data = xr.open_dataset(NetCDF4DataStore(data))
-        lon = np.array(data["lon"])
-        lat = np.array(data["lat"])
-        nrows = len(lat)
-        ncols = len(lon)
-        # Latitude and longitude found, so we can stop now
-        icont = True
-        break
+        with xr.open_dataset(NetCDF4DataStore(data)) as _ds:
+            lon = np.array(_ds["lon"])
+            lat = np.array(_ds["lat"])
+            nrows = len(lat)
+            ncols = len(lon)
+            # Latitude and longitude found, so we can stop now
+            icont = True
+            ds = _ds
+            break
 
     if not icont:
         # Could not find any data
@@ -204,10 +205,10 @@ def download(
 
                 query.variables(var_name)
                 data = ncss.get_data(query)
-                data = xr.open_dataset(NetCDF4DataStore(data))
-                val = data[var_name]
-                datasets[param].unit = val.units
-                val = np.array(val.metpy.unit_array.squeeze())
+                with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+                    val = ds[var_name]
+                    datasets[param].unit = val.units
+                    val = np.array(val.metpy.unit_array.squeeze())
 
                 if param == "precipitation":
                     # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall

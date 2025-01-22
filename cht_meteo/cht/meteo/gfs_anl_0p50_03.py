@@ -103,21 +103,20 @@ def download(
 
         url = base_url + "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
 
-        ds = xr.open_dataset(url)  # or engine='pydap'
+        with xr.open_dataset(url) as ds:  # or engine='pydap'
+            i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
+            i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
+            j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
+            j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
 
-        i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
-        i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
-        j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
-        j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
+            okay = False
 
-        okay = False
+            # Latitude and longitude
+            lat = ds.lat.to_numpy()[i1:i2]
+            lon = ds.lon.to_numpy()[j1:j2]
 
-        # Latitude and longitude
-        lat = ds.lat.to_numpy()[i1:i2]
-        lon = ds.lon.to_numpy()[j1:j2]
-
-        nrows = len(lat)
-        ncols = len(lon)
+            nrows = len(lat)
+            ncols = len(lon)
 
         # Now loop through parameters
 
@@ -249,14 +248,14 @@ def download(
                             "v-component_of_wind_height_above_ground",
                         )
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))  # noqa: F821
-                        u = data["u-component_of_wind_height_above_ground"]
-                        v = data["v-component_of_wind_height_above_ground"]
-                        dataset.unit = u.units
-                        u = u.metpy.unit_array.squeeze()
-                        dataset.u[it, :, :] = np.array(u)
-                        v = v.metpy.unit_array.squeeze()
-                        dataset.v[it, :, :] = np.array(v)
+                        with xr.open_dataset(NetCDF4DataStore(data)) as ds:  # noqa: F821
+                            u = ds["u-component_of_wind_height_above_ground"]
+                            v = ds["v-component_of_wind_height_above_ground"]
+                            dataset.unit = u.units
+                            u = u.metpy.unit_array.squeeze()
+                            dataset.u[it, :, :] = np.array(u)
+                            v = v.metpy.unit_array.squeeze()
+                            dataset.v[it, :, :] = np.array(v)
 
                     else:
                         # Other scalar variables
@@ -275,21 +274,21 @@ def download(
                         )
                         query.variables(var_name)
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))  # noqa: F821
-                        val = data[var_name]
-                        dataset.unit = val.units
-                        val = np.array(val.metpy.unit_array.squeeze())
-                        if param == "precipitation":
-                            # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
-                            # For the first, just divide by 3 to get hourly precip
-                            # For the second, first subtract volume that fell in the first 3 hours
-                            if h == 0 or h == 6 or h == 12 or h == 18:
-                                val = val / 3  # Convert to mm/h
-                            else:
-                                val = (
-                                    val - 3 * np.squeeze(dataset.val[it - 1, :, :])
-                                ) / 3
-                        dataset.val[it, :, :] = val
+                        with xr.open_dataset(NetCDF4DataStore(data)) as ds:  # noqa: F821
+                            val = ds[var_name]
+                            dataset.unit = val.units
+                            val = np.array(val.metpy.unit_array.squeeze())
+                            if param == "precipitation":
+                                # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
+                                # For the first, just divide by 3 to get hourly precip
+                                # For the second, first subtract volume that fell in the first 3 hours
+                                if h == 0 or h == 6 or h == 12 or h == 18:
+                                    val = val / 3  # Convert to mm/h
+                                else:
+                                    val = (
+                                        val - 3 * np.squeeze(dataset.val[it - 1, :, :])
+                                    ) / 3
+                            dataset.val[it, :, :] = val
 
                 elif makezeros:  # add zeros
                     if param == "wind":

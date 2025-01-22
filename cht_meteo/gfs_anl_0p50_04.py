@@ -86,42 +86,41 @@ def download(
             #     # Try the next time
             #     continue
 
-            ds = xr.open_dataset(url + name)  # or engine='pydap'
+            with xr.open_dataset(url + name) as ds:  # or engine='pydap'
+                lon_range[0] = np.mod(lon_range[0], 360.0)
+                lon_range[1] = np.mod(lon_range[1], 360.0)
 
-            lon_range[0] = np.mod(lon_range[0], 360.0)
-            lon_range[1] = np.mod(lon_range[1], 360.0)
+                i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
+                i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
+                j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
+                j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
 
-            i1 = np.where(ds.lat.to_numpy() > lat_range[1])[0][-1]
-            i2 = np.where(ds.lat.to_numpy() < lat_range[0])[0][0]
-            j1 = np.where(ds.lon.to_numpy() < lon_range[0])[0][-1]
-            j2 = np.where(ds.lon.to_numpy() > lon_range[1])[0][0]
+                # Latitude and longitude
+                lat = ds.lat.to_numpy()[i1:i2]
+                lon = ds.lon.to_numpy()[j1:j2]
 
-            # Latitude and longitude
-            lat = ds.lat.to_numpy()[i1:i2]
-            lon = ds.lon.to_numpy()[j1:j2]
+                nrows = len(lat)
+                ncols = len(lon)
 
-            nrows = len(lat)
-            ncols = len(lon)
+                # ncss  = gfs.datasets[j].subset()
+                # query = ncss.query()
+                # query.lonlat_box(north=lat_range[1], \
+                #                  south=lat_range[0], \
+                #                   east=lon_range[1],  \
+                #                   west=lon_range[0]).vertical_level(10.0)
+                # query.variables("u-component_of_wind_height_above_ground",
+                #                 "v-component_of_wind_height_above_ground")
+                # data = ncss.get_data(query)
+                # data = xr.open_dataset(NetCDF4DataStore(data))
+                # lon = np.array(data['lon'])
+                # lat = np.array(data['lat'])
 
-            # ncss  = gfs.datasets[j].subset()
-            # query = ncss.query()
-            # query.lonlat_box(north=lat_range[1], \
-            #                  south=lat_range[0], \
-            #                   east=lon_range[1],  \
-            #                   west=lon_range[0]).vertical_level(10.0)
-            # query.variables("u-component_of_wind_height_above_ground",
-            #                 "v-component_of_wind_height_above_ground")
-            # data = ncss.get_data(query)
-            # data = xr.open_dataset(NetCDF4DataStore(data))
-            # lon = np.array(data['lon'])
-            # lat = np.array(data['lat'])
+                # nrows = len(lat)
+                # ncols = len(lon)
 
-            # nrows = len(lat)
-            # ncols = len(lon)
-
-            # Latitude and longitude found, so we can stop now
-            icont = True
-            break
+                # Latitude and longitude found, so we can stop now
+                icont = True
+                break
 
         except Exception:
             # Try another time
@@ -227,21 +226,21 @@ def download(
                 #     #continue
 
                 print(name + " : " + param)
-
+                ds = None
                 for iattempt in range(10):
                     try:
-                        ds = xr.open_dataset(url + name)
-                        if iattempt > 0:
-                            print("Success at attempt no " + int(iattempt + 1))
-                        #                            makezeros = False
-                        okay = True
-                        break
+                        with xr.open_dataset(url + name) as _ds:
+                            if iattempt > 0:
+                                print("Success at attempt no " + int(iattempt + 1))
+                            #                            makezeros = False
+                            ds = _ds
+                            break
                     except Exception:
                         # Try again
                         #                        makezeros = True
                         pass
 
-                if okay:
+                if ds:
                     if param == "wind":
                         u = ds["u-component_of_wind_height_above_ground"][
                             0, 0, i1:i2, j1:j2

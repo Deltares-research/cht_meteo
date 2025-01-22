@@ -1,15 +1,15 @@
-import os
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import psutil
+import pytest
 from pyproj import CRS
 
 from cht_meteo.meteo import MeteoGrid, MeteoSource
 
 
-def test_download_meteo():
-    path = Path(__file__).parent
+def test_download_meteo(setup_temp_test_dir):
     params = ["wind", "barometric_pressure", "precipitation"]
     lat = 32.77
     lon = -79.95
@@ -23,7 +23,7 @@ def test_download_meteo():
         name=name,
         source=gfs_source,
         parameters=params,
-        path=path,
+        path=setup_temp_test_dir,
         x_range=[lon - 1, lon + 1],
         y_range=[lat - 1, lat + 1],
         crs=CRS.from_epsg(4326),
@@ -35,7 +35,9 @@ def test_download_meteo():
     time_range = [t0, t1]
 
     gfs_conus.download(time_range)
-    assert path.joinpath("gfs_anl_0p50_us_southeast.20230101_0000.nc").is_file()
+    assert (
+        setup_temp_test_dir / "gfs_anl_0p50_us_southeast.20230101_0000.nc"
+    ).is_file()
 
     gfs_conus.collect(time_range)
 
@@ -44,22 +46,14 @@ def test_download_meteo():
 
     del gfs_conus, gfs_source
 
-    delete_file(str(path.joinpath("gfs_anl_0p50_us_southeast.20230101_0000.nc")))
 
+@pytest.fixture()
+def setup_temp_test_dir():
+    test_path = Path(tempfile.gettempdir()) / "test_download_meteo"
+    if test_path.exists():
+        shutil.rmtree(test_path)
+    test_path.mkdir(parents=True)
 
-def delete_file(file_path):
-    # Get the process ID of the process holding the file handle
-    for proc in psutil.process_iter():
-        try:
-            for file in proc.open_files():
-                if file.path == file_path:
-                    pid = proc.pid
-                    # Terminate the process
-                    os.kill(pid, 9)
-        except Exception:
-            pass
-    # Delete the file
-    try:
-        os.remove(file_path)
-    except FileNotFoundError:
-        print("File already removed")
+    yield test_path
+
+    shutil.rmtree(test_path)

@@ -89,56 +89,54 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                     name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
 
                 full_url = url + name
-                ds0 = xr.open_dataset(full_url)
+                with xr.open_dataset(full_url) as ds0:
+                    # Latitude and longitude
 
-                # Latitude and longitude
+                    # Data will be stored in ascending lat order !
+                    lon = ds0.lon.to_numpy()[:]
+                    lat = ds0.lat.to_numpy()[:]
 
-                # Data will be stored in ascending lat order !
-                lon = ds0.lon.to_numpy()[:]
-                lat = ds0.lat.to_numpy()[:]
+                    # Get lat, lon indices
 
-                # Get lat, lon indices
+                    j1 = np.where(lon < lon_range[0])[0]
+                    if len(j1) > 0:
+                        j1 = j1[-1]
+                    else:
+                        j1 = 0
 
-                j1 = np.where(lon < lon_range[0])[0]
-                if len(j1) > 0:
-                    j1 = j1[-1]
-                else:
-                    j1 = 0
+                    j2 = np.where(lon > lon_range[1])[0]
+                    if len(j2) > 0:
+                        j2 = j2[0]
+                    else:
+                        j2 = len(lon)
 
-                j2 = np.where(lon > lon_range[1])[0]
-                if len(j2) > 0:
-                    j2 = j2[0]
-                else:
-                    j2 = len(lon)
+                    i1 = np.where(lat > lat_range[1])[0]
+                    if len(i1) > 0:
+                        i1 = i1[-1]
+                    else:
+                        i1 = 0
 
-                i1 = np.where(lat > lat_range[1])[0]
-                if len(i1) > 0:
-                    i1 = i1[-1]
-                else:
-                    i1 = 0
+                    i2 = np.where(lat < lat_range[0])[0]
+                    if len(i2) > 0:
+                        i2 = i2[0]
+                    else:
+                        i2 = len(lat)
 
-                i2 = np.where(lat < lat_range[0])[0]
-                if len(i2) > 0:
-                    i2 = i2[0]
-                else:
-                    i2 = len(lat)
+                    if i2 <= i1 or j2 <= j1:
+                        print("Error: cut-out is empty with given x_range and y_range")
+                        return
 
-                if i2 <= i1 or j2 <= j1:
-                    print("Error: cut-out is empty with given x_range and y_range")
-                    return
+                    # Latitude and longitude
+                    lat = lat[i1:i2]
+                    lon = lon[j1:j2]
 
-                # Latitude and longitude
-                lat = lat[i1:i2]
-                lon = lon[j1:j2]
+                    lat = np.flip(lat)
 
-                lat = np.flip(lat)
+                    if londeg == "west":
+                        lon = lon - 360.0
 
-                if londeg == "west":
-                    lon = lon - 360.0
-
-                # Latitude and longitude found, so we can stop now
-                icont = True
-                ds0.close()
+                    # Latitude and longitude found, so we can stop now
+                    icont = True
 
                 break
 
@@ -221,10 +219,10 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                     okay = False
 
                     print(name + " : " + param)
-
+                    ds0 = None
                     for iattempt in range(10):
                         try:
-                            ds0 = xr.open_dataset(url + name)
+                            ds0 = xr.load_dataset(url + name)
                             if iattempt > 0:
                                 print("Success at attempt no " + int(iattempt + 1))
                             okay = True
@@ -233,7 +231,7 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                             # Try again
                             pass
 
-                    if okay:
+                    if ds0:
                         if param == "wind":
                             u = ds0["u-component_of_wind_height_above_ground"][
                                 0, 0, i1:i2, j1:j2

@@ -34,10 +34,9 @@ def get_da_from_url(url):
 
     data = requests.get(url).content
     ds0 = nc_Dataset("temp", memory=data)
-    ds = xr.open_dataset(xr.backends.NetCDF4DataStore(ds0))
     # Alternative
-    # ds = xr.open_dataset(url + '#mode=bytes') # Added this last part to allow opening with xarray
-    return ds
+    # ds = xr.load_dataset(url + '#mode=bytes') # Added this last part to allow opening with xarray
+    return xr.load_dataset(xr.backends.NetCDF4DataStore(ds0))
 
 
 def tc_vitals_storm():

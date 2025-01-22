@@ -498,15 +498,14 @@ def download_metget_data(data_id, endpoint, apikey, sleeptime, max_wait):
             url = data_url + "/" + f
             # ds = Dataset('name', memory=requests.get(url).content)
             try:
-                ds = xr.open_dataset(
-                    url + "#mode=bytes"
-                )  # Added this last part to allow opening with xarray
+                ds = xr.load_dataset(url + "#mode=bytes")
+                # Added this last part to allow opening with xarray
             except Exception:
                 from netCDF4 import Dataset
 
                 data = requests.get(url).content
                 ds0 = Dataset("temp", memory=data)
-                ds = xr.open_dataset(xr.backends.NetCDF4DataStore(ds0))
+                ds = xr.load_dataset(xr.backends.NetCDF4DataStore(ds0))
             ds_list.append(ds)
 
         return ds_list

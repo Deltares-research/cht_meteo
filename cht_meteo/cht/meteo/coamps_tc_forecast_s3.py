@@ -145,36 +145,32 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
 
 def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
     # Open the COAMPS-TC netcdf file
-    dsin = xr.open_dataset(inpfile)
+    with xr.open_dataset(inpfile) as dsin:
+        # Get the lon and lat
+        lon = dsin["lon"].to_numpy()[0, :] - 360.0
+        lat = dsin["lat"].to_numpy()[:, 0]
 
-    # Get the lon and lat
-    lon = dsin["lon"].to_numpy()[0, :] - 360.0
-    lat = dsin["lat"].to_numpy()[:, 0]
+        # Create new dataset
+        ds = xr.Dataset()
+        # Add the lon and lat
+        ds["lon"] = xr.DataArray(lon, dims=("lon"))
+        ds["lat"] = xr.DataArray(lat, dims=("lat"))
+        # Add the variables
+        variables_coamps = ["uuwind", "vvwind", "slpres", "precip"]
+        variables = ["wind_u", "wind_v", "barometric_pressure", "precipitation"]
+        # units = ["m/s", "m/s", "hPa", "mm"]
+        units = ["m/s", "m/s", "Pa", "mm/h"]
+        for ivar, var in enumerate(variables_coamps):
+            # Conversion factors
+            fconv = 1.0
+            if var == "slpres":
+                fconv = 100.0
+            if var in dsin:
+                ds[variables[ivar]] = dsin[var] * fconv
+                ds[variables[ivar]].attrs["units"] = units[ivar]
 
-    # Create new dataset
-    ds = xr.Dataset()
-    # Add the lon and lat
-    ds["lon"] = xr.DataArray(lon, dims=("lon"))
-    ds["lat"] = xr.DataArray(lat, dims=("lat"))
-    # Add the variables
-    variables_coamps = ["uuwind", "vvwind", "slpres", "precip"]
-    variables = ["wind_u", "wind_v", "barometric_pressure", "precipitation"]
-    # units = ["m/s", "m/s", "hPa", "mm"]
-    units = ["m/s", "m/s", "Pa", "mm/h"]
-    for ivar, var in enumerate(variables_coamps):
-        # Conversion factors
-        fconv = 1.0
-        if var == "slpres":
-            fconv = 100.0
-        if var in dsin:
-            ds[variables[ivar]] = dsin[var] * fconv
-            ds[variables[ivar]].attrs["units"] = units[ivar]
-
-    # Write output file
-    ds.to_netcdf(outfile)
-
-    # Close the raw netcdf file
-    dsin.close()
+        # Write output file
+        ds.to_netcdf(outfile)
 
 
 def get_storm_track(track_path: str, year: int, storm: str, cycle: str):

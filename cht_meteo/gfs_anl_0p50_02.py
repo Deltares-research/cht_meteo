@@ -84,11 +84,12 @@ def download(
         ).vertical_level(10.0)
         query.variables("u-component_of_wind_height_above_ground")
         data = ncss.get_data(query)
-        data = xr.open_dataset(NetCDF4DataStore(data))
-        lon = np.array(data["lon"])
-        lat = np.array(data["lat"])
-        nrows = len(lat)
-        ncols = len(lon)
+        with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+            lon = np.array(ds["lon"])
+            lat = np.array(ds["lat"])
+            nrows = len(lat)
+            ncols = len(lon)
+            data = ds
         # Latitude and longitude found, so we can stop now
         icont = True
         break
@@ -204,21 +205,21 @@ def download(
 
                 query.variables(var_name)
                 data = ncss.get_data(query)
-                data = xr.open_dataset(NetCDF4DataStore(data))
-                val = data[var_name]
-                datasets[param].unit = val.units
-                val = np.array(val.metpy.unit_array.squeeze())
+                with xr.open_dataset(NetCDF4DataStore(data)) as ds:
+                    val = ds[var_name]
+                    datasets[param].unit = val.units
+                    val = np.array(val.metpy.unit_array.squeeze())
 
-                if param == "precipitation":
-                    # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
-                    # For the first, just divide by 3 to get hourly precip
-                    # For the second, first subtract volume that fell in the first 3 hours
-                    if h == 0 or h == 6 or h == 12 or h == 18:
-                        val = val / 3  # Convert to mm/h
-                    else:
-                        val = (val - 3 * np.squeeze(dataset.val[it - 1, :, :])) / 3
+                    if param == "precipitation":
+                        # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
+                        # For the first, just divide by 3 to get hourly precip
+                        # For the second, first subtract volume that fell in the first 3 hours
+                        if h == 0 or h == 6 or h == 12 or h == 18:
+                            val = val / 3  # Convert to mm/h
+                        else:
+                            val = (val - 3 * np.squeeze(dataset.val[it - 1, :, :])) / 3
 
-                datasets[param].val[it, :, :] = val
+                    datasets[param].val[it, :, :] = val
 
             except Exception:
                 print("Could not download data")
