@@ -84,7 +84,7 @@ def download(
             "v-component_of_wind_height_above_ground",
         )
         data = ncss.get_data(query)
-        data = xr.open_dataset(NetCDF4DataStore(data))
+        data = xr.load_dataset(NetCDF4DataStore(data))
         lon = np.array(data["lon"])
         lat = np.array(data["lat"])
         nrows = len(lat)
@@ -105,12 +105,12 @@ def download(
         dataset.y = lat
         if dataset.quantity == "wind":
             dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
+            dataset.u[:] = np.nan
             dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.v[:] = np.nan
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val[:] = np.nan
 
     for it, time in enumerate(requested_times):
         h = time.hour
@@ -203,14 +203,14 @@ def download(
                             "v-component_of_wind_height_above_ground",
                         )
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))
-                        u = data["u-component_of_wind_height_above_ground"]
-                        v = data["v-component_of_wind_height_above_ground"]
-                        dataset.unit = u.units
-                        u = u.metpy.unit_array.squeeze()
-                        dataset.u[it, :, :] = np.array(u)
-                        v = v.metpy.unit_array.squeeze()
-                        dataset.v[it, :, :] = np.array(v)
+                        with xr.open_dataset(NetCDF4DataStore(data)) as data:
+                            u = data["u-component_of_wind_height_above_ground"]
+                            v = data["v-component_of_wind_height_above_ground"]
+                            dataset.unit = u.units
+                            u = u.metpy.unit_array.squeeze()
+                            dataset.u[it, :, :] = np.array(u)
+                            v = v.metpy.unit_array.squeeze()
+                            dataset.v[it, :, :] = np.array(v)
 
                     else:
                         # Other scalar variables
@@ -229,21 +229,21 @@ def download(
                         )
                         query.variables(var_name)
                         data = ncss.get_data(query)
-                        data = xr.open_dataset(NetCDF4DataStore(data))
-                        val = data[var_name]
-                        dataset.unit = val.units
-                        val = np.array(val.metpy.unit_array.squeeze())
-                        if param == "precipitation":
-                            # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
-                            # For the first, just divide by 3 to get hourly precip
-                            # For the second, first subtract volume that fell in the first 3 hours
-                            if h == 0 or h == 6 or h == 12 or h == 18:
-                                val = val / 3  # Convert to mm/h
-                            else:
-                                val = (
-                                    val - 3 * np.squeeze(dataset.val[it - 1, :, :])
-                                ) / 3
-                        dataset.val[it, :, :] = val
+                        with xr.open_dataset(NetCDF4DataStore(data)) as data:
+                            val = data[var_name]
+                            dataset.unit = val.units
+                            val = np.array(val.metpy.unit_array.squeeze())
+                            if param == "precipitation":
+                                # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
+                                # For the first, just divide by 3 to get hourly precip
+                                # For the second, first subtract volume that fell in the first 3 hours
+                                if h == 0 or h == 6 or h == 12 or h == 18:
+                                    val = val / 3  # Convert to mm/h
+                                else:
+                                    val = (
+                                        val - 3 * np.squeeze(dataset.val[it - 1, :, :])
+                                    ) / 3
+                            dataset.val[it, :, :] = val
 
                 elif makezeros:  # add zeros
                     if param == "wind":

@@ -1,7 +1,9 @@
 import datetime
+
 import pandas as pd
 import requests
 import xarray as xr
+
 
 def date_transform(date):
     """
@@ -13,7 +15,10 @@ def date_transform(date):
     Returns:
         datetime.datetime: A datetime object with the transformed date and UTC timezone.
     """
-    return datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S").replace(
+        tzinfo=datetime.timezone.utc
+    )
+
 
 def get_da_from_url(url):
     """
@@ -26,27 +31,34 @@ def get_da_from_url(url):
     xr.DataArray: The dataset as an xarray DataArray.
     """
     from netCDF4 import Dataset as nc_Dataset
+
     data = requests.get(url).content
-    ds0 = nc_Dataset('temp', memory=data)
-    ds = xr.open_dataset(xr.backends.NetCDF4DataStore(ds0))
+    ds0 = nc_Dataset("temp", memory=data)
     # Alternative
-    # ds = xr.open_dataset(url + '#mode=bytes') # Added this last part to allow opening with xarray
-    return ds
+    # ds = xr.load_dataset(url + '#mode=bytes') # Added this last part to allow opening with xarray
+    return xr.load_dataset(xr.backends.NetCDF4DataStore(ds0))
+
 
 def tc_vitals_storm():
     """Find the storm with the highest priority from NOAA"""
     try:
-        tcvitals = requests.get('https://ftp.nhc.noaa.gov/atcf/com/tcvitals').text
-        splits = [line.split() for line in tcvitals.split('\n')[:-1]] # last line is empty
+        tcvitals = requests.get("https://ftp.nhc.noaa.gov/atcf/com/tcvitals").text
+        splits = [
+            line.split() for line in tcvitals.split("\n")[:-1]
+        ]  # last line is empty
         priority = pd.DataFrame(splits)
-        priority = priority.iloc[[i for i in range(len(priority)) if 'L' in priority.iloc[i, 1]], :] # check only in atlantic basin storms
-        pr_st_noaa = priority.iloc[0, 1] # define the top L storm as the priority one
+        priority = priority.iloc[
+            [i for i in range(len(priority)) if "L" in priority.iloc[i, 1]], :
+        ]  # check only in atlantic basin storms
+        pr_st_noaa = priority.iloc[0, 1]  # define the top L storm as the priority one
         return pr_st_noaa
-    except:
+    except Exception:
         return None
 
 
-def check_coamps(apikey:str, endpoint:str, start:datetime=None, end:datetime=None) -> dict:
+def check_coamps(
+    apikey: str, endpoint: str, start: datetime = None, end: datetime = None
+) -> dict:
     """
     Read metadata of available forecasts from endpoint and returns a dictionary of the available storms.
 
@@ -65,11 +77,9 @@ def check_coamps(apikey:str, endpoint:str, start:datetime=None, end:datetime=Non
     if end:
         url += "&end={:s}".format(end.strftime("%Y-%m-%d"))
     # ...Get the json from the endpoint
-    response = requests.get(
-        url, headers={"x-api-key": apikey}
-    )
+    response = requests.get(url, headers={"x-api-key": apikey})
     data = response.json()["body"]
-    
+
     if not data:
         return {}
     # TODO check if this is consistent with the latest endpoint
@@ -80,7 +90,8 @@ def check_coamps(apikey:str, endpoint:str, start:datetime=None, end:datetime=Non
         storms = data[last_year]
     return storms
 
-def get_storm_track(year:int, storm:str, cycle:str):
+
+def get_storm_track(year: int, storm: str, cycle: str):
     """
     Retrieves the storm track data for a given year, storm, and cycle.
 
@@ -95,7 +106,7 @@ def get_storm_track(year:int, storm:str, cycle:str):
     """
     url = f"https://coamps-tc-data.s3.us-east-2.amazonaws.com/deterministic/realtime/{year}/{storm}/{cycle}/TRK_COAMPS_CTCX_3_{cycle}_{storm}"
     response = requests.get(url)
-    
+
     if response.status_code == 200:
         data = response.content
     else:

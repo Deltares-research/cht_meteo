@@ -4,19 +4,10 @@
 Date:       04/07/2022
 """
 
-import datetime
-import json
-import os
-import time
-
-import numpy as np
-import pandas as pd
-import requests
-from pyproj import CRS
-
 from urllib.request import urlretrieve
 
 # from cht_meteo import gfs_forecast_0p25
+
 
 class Dataset:
     def __init__(self):
@@ -44,16 +35,20 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
 
     tar_file = storm_number + "_" + cycle_time + "_netcdf.tar"
 
-    url = base_url + "/" + str(year) + "/" + storm_number + "/" + cycle_time + "/" + tar_file
+    url = (
+        base_url
+        + "/"
+        + str(year)
+        + "/"
+        + storm_number
+        + "/"
+        + cycle_time
+        + "/"
+        + tar_file
+    )
 
     # Download the tar file from url to a temporary directory
     urlretrieve(url, tar_file)
-
-
-    
-
-
-
 
 
 #     fill_values = dict(
@@ -249,12 +244,12 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
 #         ).to_pydatetime()
 #         if dataset.quantity == "wind":
 #             dataset.u = np.empty((ntime, nrows, ncols))
-#             dataset.u[:] = np.NaN
+#             dataset.u[:] = np.nan
 #             dataset.v = np.empty((ntime, nrows, ncols))
-#             dataset.v[:] = np.NaN
+#             dataset.v[:] = np.nan
 #         else:
 #             dataset.val = np.empty((ntime, nrows, ncols))
-#             dataset.val[:] = np.NaN
+#             dataset.val[:] = np.nan
 #         datasets.append(dataset)
 
 #     for it, time_i in enumerate(requested_times):
@@ -295,7 +290,7 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
 #                 if dss[storm_id][param_names[param]] is not None:
 #                     okay = True
 #                     model_t = pd.to_datetime(
-#                         dss[storm_id][param_names[param]].time.values
+#                         dss[storm_id][param_names[param]].time.to_numpy()
 #                     ).to_pydatetime()
 #                     model_t_ind = np.where(model_t == time_i.replace(tzinfo=None))[0][0]
 #                 else:
@@ -440,7 +435,7 @@ def download(param_list, lon_range, lat_range, time_range, cycle_time):
 
 #     AVAILABLE_MODELS = {
 #         "gfs": "gfs-ncep",
-#         "nam": "nam-ncep",
+#         "name": "name-ncep",
 #         "hwrf": "hwrf",
 #         "coamps": "coamps-tc",
 #     }

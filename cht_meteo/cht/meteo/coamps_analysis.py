@@ -5,41 +5,33 @@ Created on Thu May 20 10:32:33 2021
 @author: ormondt
 """
 
-import os
-from siphon.catalog import TDSCatalog
-from xarray.backends import NetCDF4DataStore
-import xarray as xr
-import pandas as pd
-import numpy as np
-from pyproj import CRS
-from metpy.units import units
 
-class Dataset():
-
+class Dataset:
     def __init__(self):
-
         self.quantity = None
-        self.unit     = None
-        self.time     = []
-        self.x        = None
-        self.y        = None
-        self.crs      = None
-        self.val      = None
-        self.u        = None
-        self.v        = None
+        self.unit = None
+        self.time = []
+        self.x = None
+        self.y = None
+        self.crs = None
+        self.val = None
+        self.u = None
+        self.v = None
 
-def download(param_list, lon_range, lat_range, path, prefix,
-             time_range=None, times=None):
 
+def download(
+    param_list, lon_range, lat_range, path, prefix, time_range=None, times=None
+):
     pass
 
+
 #     base_url = "https://www.ncei.noaa.gov/thredds/catalog/model-gfs-g4-anl-files-old/"
-    
+
 
 #     if times is not None:
 #         requested_times = times
 #         time_range = [times[0], times[-1]]
-#     else:    
+#     else:
 #         requested_times = pd.date_range(start=time_range[0],
 #                           end=time_range[1],
 #                           freq='3H').to_pydatetime().tolist()
@@ -47,7 +39,7 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #     ntime = len(requested_times)
 
 #     datasets = []
-#     for param in param_list:        
+#     for param in param_list:
 #         dataset = Dataset()
 #         dataset.crs = CRS.from_epsg(4326)
 #         dataset.quantity = param
@@ -62,11 +54,11 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #         url = base_url + month_string + "/" + date_string + "/catalog.xml"
 #         try:
 #             gfs   = TDSCatalog(url)
-#         except:
+#         except Exception:
 #             gfs   = []
 #         cstr  = "0000_000"
 #         name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
-#         okay = False               
+#         okay = False
 #         if gfs:
 #             for j, ds in enumerate(gfs.datasets):
 #                 if ds==name:
@@ -75,8 +67,8 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #         if not okay:
 #             # Try the next time
 #             continue
-#         ncss  = gfs.datasets[j].subset()                
-#         query = ncss.query()            
+#         ncss  = gfs.datasets[j].subset()
+#         query = ncss.query()
 #         query.lonlat_box(north=lat_range[1], \
 #                          south=lat_range[0], \
 #                           east=lon_range[1],  \
@@ -84,110 +76,110 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #         query.variables("u-component_of_wind_height_above_ground",
 #                         "v-component_of_wind_height_above_ground")
 #         data = ncss.get_data(query)
-#         data = xr.open_dataset(NetCDF4DataStore(data))        
+#         data = xr.open_dataset(NetCDF4DataStore(data))
 #         lon = np.array(data['lon'])
-#         lat = np.array(data['lat'])  
+#         lat = np.array(data['lat'])
 #         nrows = len(lat)
 #         ncols = len(lon)
 #         # Latitude and longitude found, so we can stop now
 #         icont = True
 #         break
-    
+
 #     if not icont:
 #         # Could not find any data
 #         print("Could not find any data in requested range !")
 #         datasets = []
 #         return datasets
-    
+
 #     # initialize matrices
-#     for dataset in datasets:        
+#     for dataset in datasets:
 #         dataset.x = lon
 #         dataset.y = lat
-#         if dataset.quantity == "wind":                    
+#         if dataset.quantity == "wind":
 #             dataset.u    = np.empty((ntime, nrows, ncols))
-#             dataset.u[:] = np.NaN            
-#             dataset.v    = np.empty((ntime, nrows, ncols))                
-#             dataset.v[:] = np.NaN            
+#             dataset.u[:] = np.nan
+#             dataset.v    = np.empty((ntime, nrows, ncols))
+#             dataset.v[:] = np.nan
 #         else:
 #             dataset.val    = np.empty((ntime, nrows, ncols))
-#             dataset.val[:] = np.NaN            
-    
+#             dataset.val[:] = np.nan
+
 #     for it, time in enumerate(requested_times):
-        
+
 #         h            = time.hour
 #         month_string = time.strftime("%Y%m")
 #         date_string  = time.strftime("%Y%m%d")
 #         url = base_url + month_string + "/" + date_string + "/catalog.xml"
-        
+
 #         try:
 #             gfs   = TDSCatalog(url)
-#         except:
+#         except Exception:
 #             print("Could not fetch catalogue")
 #             continue
-        
+
 #         if h==0:
 #             cstr  = "0000_000"
 #             crstr = "0000_003"
 #             var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-#         elif h==3:    
+#         elif h==3:
 #             cstr  = "0000_003"
 #             crstr = "0000_006"
 #             var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-#         elif h==6:    
+#         elif h==6:
 #             cstr  = "0600_000"
 #             crstr = "0600_003"
 #             var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-#         elif h==9:    
+#         elif h==9:
 #             cstr  = "0600_003"
 #             crstr = "0600_006"
 #             var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-#         elif h==12:    
+#         elif h==12:
 #             cstr  = "1200_000"
 #             crstr = "1200_003"
 #             var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-#         elif h==15:    
+#         elif h==15:
 #             cstr  = "1200_003"
 #             crstr = "1200_006"
 #             var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-#         elif h==18:    
+#         elif h==18:
 #             cstr  = "1800_000"
 #             crstr = "1800_003"
 #             var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-#         elif h==21:    
+#         elif h==21:
 #             cstr  = "1800_003"
 #             crstr = "1800_006"
 #             var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
 
 #         # Loop through requested parameters
 #         for ind, param in enumerate(param_list):
-            
+
 #             dataset = datasets[ind]
 #             dataset.time.append(time)
 
 #             if param == "precipitation":
-#                 name = "gfsanl_4_" + date_string + "_" + crstr + ".grb2" 
-#             else:    
-#                 name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2" 
+#                 name = "gfsanl_4_" + date_string + "_" + crstr + ".grb2"
+#             else:
+#                 name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
 
 #             try:
-                            
+
 #                 okay = False
 #                 for j, ds in enumerate(gfs.datasets):
 #                     if ds==name:
 #                         okay = True
 #                         break
-                
-#                 if not okay:                    
+
+#                 if not okay:
 #                     # File not found, on to the next parameter
 #                     print(name + " was not found on server ...")
 #                     continue
-    
-#                 print(name + " : " + param)    
-    
+
+#                 print(name + " : " + param)
+
 #                 ncss  = gfs.datasets[j].subset()
-                
-#                 if param == "wind":                    
-#                     query = ncss.query()            
+
+#                 if param == "wind":
+#                     query = ncss.query()
 #                     query.lonlat_box(north=lat_range[1], \
 #                                      south=lat_range[0], \
 #                                       east=lon_range[1],  \
@@ -203,22 +195,22 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #                     dataset.u[it,:,:] = np.array(u)
 #                     v = v.metpy.unit_array.squeeze()
 #                     dataset.v[it,:,:] = np.array(v)
-                
+
 #                 else:
-                    
-#                     # Other scalar variables                    
-#     #                fac = 1.0                                     
+
+#                     # Other scalar variables
+#     #                fac = 1.0
 #                     if param == "barometric_pressure":
 #                         var_name = "Pressure_reduced_to_MSL_msl"
-#                     elif param == "precipitation":    
+#                     elif param == "precipitation":
 #                         var_name = var_prcp
 #     #                    fac = 1.0
-#                     query = ncss.query()            
+#                     query = ncss.query()
 #                     query.lonlat_box(north=lat_range[1], \
 #                                      south=lat_range[0], \
 #                                      east=lon_range[1],  \
 #                                      west=lon_range[0])
-#                     query.variables(var_name)                    
+#                     query.variables(var_name)
 #                     data = ncss.get_data(query)
 #                     data = xr.open_dataset(NetCDF4DataStore(data))
 #                     val          = data[var_name]
@@ -234,8 +226,8 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #                             val = (val - 3*np.squeeze(dataset.val[it-1,:,:]))/3
 #                     dataset.val[it,:,:]  = val
 
-#             except:
-                
+#             except Exception:
+
 #                 print("Could not download data")
 
 #         # Write data to netcdf
@@ -244,7 +236,7 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #         full_file_name = os.path.join(path, file_name)
 #         ds = xr.Dataset()
 
-             
+
 #         okay = False
 #         for ind, dataset in enumerate(datasets):
 
@@ -252,16 +244,16 @@ def download(param_list, lon_range, lat_range, path, prefix,
 
 #                 uu = dataset.u[it,:,:]
 #                 vv = dataset.v[it,:,:]
-                
+
 #                 if not np.any(np.isnan(uu)) and not np.any(np.isnan(vv)):
-                    
+
 #                     okay = True
 
 #                     da = xr.DataArray(uu,
 #                                           coords=[("lat", dataset.y),
 #                                                   ("lon", dataset.x)])
 #                     ds["wind_u"] = da
-    
+
 #                     da = xr.DataArray(vv,
 #                                           coords=[("lat", dataset.y),
 #                                                   ("lon", dataset.x)])
@@ -272,9 +264,9 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #                 val = dataset.val[it,:,:]
 
 #                 if not np.any(np.isnan(val)):
-                    
+
 #                     okay = True
-                    
+
 #                     da = xr.DataArray(val,
 #                                           coords=[("lat", dataset.y),
 #                                                   ("lon", dataset.x)])
@@ -282,7 +274,7 @@ def download(param_list, lon_range, lat_range, path, prefix,
 #         if okay:
 #             # Only write to file if there is any data
 #             ds.to_netcdf(path=full_file_name)
-    
+
 #     return datasets
 
 # # Helper function for finding proper time variable

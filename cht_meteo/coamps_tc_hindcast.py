@@ -172,12 +172,12 @@ def download(
         dataset.y = lat
         if dataset.quantity == "wind":
             dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
+            dataset.u[:] = np.nan
             dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.v[:] = np.nan
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val[:] = np.nan
 
     for it, time_i in enumerate(requested_times):
         storm_id = fr["storm_id"][it]
@@ -348,7 +348,7 @@ def parse_domain_data(domain_list: list, level) -> dict:
 
     AVAILABLE_MODELS = {
         "gfs": "gfs-ncep",
-        "nam": "nam-ncep",
+        "name": "name-ncep",
         "hwrf": "hwrf",
         "coamps": "coamps-tc",
     }
@@ -498,15 +498,14 @@ def download_metget_data(data_id, endpoint, apikey, sleeptime, max_wait):
             url = data_url + "/" + f
             # ds = Dataset('name', memory=requests.get(url).content)
             try:
-                ds = xr.open_dataset(
-                    url + "#mode=bytes"
-                )  # Added this last part to allow opening with xarray
+                ds = xr.load_dataset(url + "#mode=bytes")
+                # Added this last part to allow opening with xarray
             except Exception:
                 from netCDF4 import Dataset
 
                 data = requests.get(url).content
                 ds0 = Dataset("temp", memory=data)
-                ds = xr.open_dataset(xr.backends.NetCDF4DataStore(ds0))
+                ds = xr.load_dataset(xr.backends.NetCDF4DataStore(ds0))
             ds_list.append(ds)
 
         return ds_list
