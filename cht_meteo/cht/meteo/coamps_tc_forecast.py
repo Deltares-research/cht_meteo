@@ -6,12 +6,13 @@ import pandas as pd
 import tomli
 from metget.metget_build import MetGetBuildRest
 from pyproj import CRS
-import datetime
+
 from cht_meteo import gfs_forecast_0p25
+
 from .metget_utils import *
 
-class Dataset():
 
+class Dataset:
     def __init__(self):
         self.quantity = None
         self.unit = None
@@ -34,15 +35,17 @@ def download(
     config_path=None,
 ):
     """Function to download coamps-tc forecasts using the metget tool api"""
-    
+
     metget = MetGet(config_path=config_path)
-    
+
     # Get info
     df = metget.get_coamps_quasi_hindcast(time_range, dt=dt)
     requested_times = df.index
     ntime = len(requested_times)
-    
-    coamps_storms = metget.get_forecasts(model="coamps", start=time_range[0], end=time_range[1])
+
+    coamps_storms = metget.get_forecasts(
+        model="coamps", start=time_range[0], end=time_range[1]
+    )
     # Get the storm names that have a forecast available for the requested cycle
     storms = [
         name
@@ -53,38 +56,52 @@ def download(
 
     # If there are no storms available raise Error
     if len(storms) == 0:
-        raise ImportError(f"There are no COAMPS-TC forecasts available for cycle: {cycle_time.strftime('%Y-%m-%d %H:%M:%S')}!")
+        raise ImportError(
+            f"There are no COAMPS-TC forecasts available for cycle: {cycle_time.strftime('%Y-%m-%d %H:%M:%S')}!"
+        )
 
     # Get priority storm
     priority_storm = metget.priority_storm
     if priority_storm not in storms:
-        raise ValueError(f"There is no forecast available for priority storm {priority_storm} for cycle: {cycle_time.strftime('%Y-%m-%d %H:%M:%S')}!")
+        raise ValueError(
+            f"There is no forecast available for priority storm {priority_storm} for cycle: {cycle_time.strftime('%Y-%m-%d %H:%M:%S')}!"
+        )
 
     # Get variable names in metget
-    variables = list(np.unique([var[1].metget_name for var in metget.meteo_variables.items()])) # ['wind_pressure', 'rain']
-    
+    variables = list(
+        np.unique([var[1].metget_name for var in metget.meteo_variables.items()])
+    )  # ['wind_pressure', 'rain']
+
     dss = {}  # prepare dictionary to save the datasets
     metadata = {}
-    
+
     # Prepare metget domain
-    domain = [f"coamps-{priority_storm}"] + [resolution] + [lon_range[0], lat_range[0], lon_range[1], lat_range[1]]
+    domain = (
+        [f"coamps-{priority_storm}"]
+        + [resolution]
+        + [lon_range[0], lat_range[0], lon_range[1], lat_range[1]]
+    )
     for var in variables:
-        ds, meta  = metget.get_meteo(time_range=time_range, dt=dt, domain=domain, var=var, multiple_forecasts=False)
+        ds, meta = metget.get_meteo(
+            time_range=time_range,
+            dt=dt,
+            domain=domain,
+            var=var,
+            multiple_forecasts=False,
+        )
         dss[var] = ds
         metadata[var] = meta
-        
+
     # if no data could be downloaded (CHECK AGAIN WHAT SHOULD HAPPEN IN THIS CASE)
     if all([dss[k] is None for k in list(dss.keys())]):
-        raise ValueError(
-            "Could not find any coamps-tc data in requested time range!"
-        )
-    
+        raise ValueError("Could not find any coamps-tc data in requested time range!")
+
     # Do checks
     for key in dss.keys():
         if dss[key] is not None:
             data0 = dss[key]
-            lon = np.array(data0['lon'])
-            lat = np.array(data0['lat'])
+            lon = np.array(data0["lon"])
+            lat = np.array(data0["lat"])
             if lat[1] - lat[0] > 0:  # lat should be in descending order
                 lat = lat[::-1]
                 reverse = True
@@ -113,45 +130,73 @@ def download(
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
             dataset.val[:] = np.nan
-        datasets.append(dataset)   
-        
+        datasets.append(dataset)
+
     # Loop through requested parameters
     for ind, param in enumerate(param_list):
         dataset = datasets[ind]
         #  First check if there are data available for this parameter
         if dss[metget.meteo_variables[param].metget_name] is None:
             raise KeyError
-        
+
         # Check naming of files to get information on cycle used
-        naming_format = metadata[metget.meteo_variables[param].metget_name]["input_files"][f"coamps-tc-{priority_storm}"][0]
+        naming_format = metadata[metget.meteo_variables[param].metget_name][
+            "input_files"
+        ][f"coamps-tc-{priority_storm}"][0]
         if naming_format.split("_")[0] == "coamps-tc":
-            cycles_used = [name.split("_")[2] for name in metadata[metget.meteo_variables[param].metget_name]["input_files"][f"coamps-tc-{priority_storm}"]]
-            taus = [name.split("_")[3].split(".")[0].split("tau")[1] for name in metadata[metget.meteo_variables[param].metget_name]["input_files"][f"coamps-tc-{priority_storm}"]]
-            times = [datetime.datetime.strptime(cycle, "%Y%m%d%H") + datetime.timedelta(hours=int(tau)) for (cycle, tau) in zip(cycles_used, taus)]
+            cycles_used = [
+                name.split("_")[2]
+                for name in metadata[metget.meteo_variables[param].metget_name][
+                    "input_files"
+                ][f"coamps-tc-{priority_storm}"]
+            ]
+            taus = [
+                name.split("_")[3].split(".")[0].split("tau")[1]
+                for name in metadata[metget.meteo_variables[param].metget_name][
+                    "input_files"
+                ][f"coamps-tc-{priority_storm}"]
+            ]
+            times = [
+                datetime.datetime.strptime(cycle, "%Y%m%d%H")
+                + datetime.timedelta(hours=int(tau))
+                for (cycle, tau) in zip(cycles_used, taus)
+            ]
             times = [t.strftime("%Y%m%d%H%M") for t in times]
         else:
             raise ValueError
-        
+
         for it, time_i in enumerate(requested_times):
-            inputs = [name for i, name in enumerate(metadata[metget.meteo_variables[param].metget_name]["input_files"][f"coamps-tc-{priority_storm}"]) if time_i.strftime("%Y%m%d%H%M") in times[i]]
+            inputs = [
+                name
+                for i, name in enumerate(
+                    metadata[metget.meteo_variables[param].metget_name]["input_files"][
+                        f"coamps-tc-{priority_storm}"
+                    ]
+                )
+                if time_i.strftime("%Y%m%d%H%M") in times[i]
+            ]
             # get cycle info
             cycle_used = inputs[0].split("_")[2]
             cycle_hour = inputs[0].split("_")[3].split(".")[0].split("tau")[1]
-            dataset.source.append(f'coamps_tc_{priority_storm}_{cycle_used}z_{cycle_hour}')
+            dataset.source.append(
+                f"coamps_tc_{priority_storm}_{cycle_used}z_{cycle_hour}"
+            )
 
         # Get metadata of input used
         dataset.config = metadata[metget.meteo_variables[param].metget_name]["input"]
-        
+
         if param == "wind":
             data = dss[metget.meteo_variables[param].metget_name]
-            u = data['wind_u']
-            v = data['wind_v']
+            u = data["wind_u"]
+            v = data["wind_v"]
             dataset.unit = u.units
-            
-            if np.any(np.isnan(u)) or np.any(np.isnan(v)):  # check if there are nans and fill them up
+
+            if np.any(np.isnan(u)) or np.any(
+                np.isnan(v)
+            ):  # check if there are nans and fill them up
                 u = u.fillna(metget.meteo_variables[param].fill_value)
                 v = v.fillna(metget.meteo_variables[param].fill_value)
-            
+
             u = u.metpy.unit_array.squeeze()
             v = v.metpy.unit_array.squeeze()
 
@@ -165,30 +210,30 @@ def download(
             if param == "barometric_pressure":
                 var_name = "mslp"
             elif param == "precipitation":
-                var_name = 'precipitation'
+                var_name = "precipitation"
             data = dss[metget.meteo_variables[param].metget_name]
-            val          = data[var_name]
+            val = data[var_name]
 
             # Added this check to ensure that pressure is in Pa
             if param == "barometric_pressure":
-                if val.units == 'mb':
+                if val.units == "mb":
                     val = val * 100
-                    val.attrs['units'] = 'Pa'
+                    val.attrs["units"] = "Pa"
             dataset.unit = val.units
 
-            if param == "precipitation":  # Added this check to ensure that nan in precipitation are correctly interpreted
-                val = val.where(val>=0, np.nan)
+            if (
+                param == "precipitation"
+            ):  # Added this check to ensure that nan in precipitation are correctly interpreted
+                val = val.where(val >= 0, np.nan)
 
             if np.any(np.isnan(val)):  # check if there are nans and fill them up
                 val = val.fillna(metget.meteo_variables[param].fill_value)
-                
+
             val = np.array(val.metpy.unit_array.squeeze())
 
             if reverse:
                 dataset.val = np.array(val[:, ::-1, :])
             else:
                 dataset.val = np.array(val)
-
-
 
     return datasets
