@@ -3,10 +3,9 @@ import datetime
 
 import numpy as np
 import pandas as pd
-from metpy import xarray
 from pyproj import CRS
 
-from .metget_utils import *
+from .metget_utils import MetGet, save_to_nc
 
 
 class Dataset:
@@ -96,12 +95,12 @@ def download(
         ).to_pydatetime()
         if dataset.quantity == "wind":
             dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
+            dataset.u[:] = np.nan
             dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.v[:] = np.nan
         else:
             dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val[:] = np.nan
         datasets.append(dataset)
 
     # Loop through requested parameters

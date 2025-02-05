@@ -57,7 +57,7 @@ def tc_vitals_storm():
         ]  # check only in atlantic basin storms
         pr_st_noaa = priority.iloc[0, 1]  # define the top L storm as the priority one
         return pr_st_noaa
-    except:
+    except Exception:
         return None
 
 
@@ -180,7 +180,7 @@ class MetGet:
         ]
 
         # Check which of the available storm forecast all named storms
-        storms = [name for name in coamps_forecasts.keys()]
+        storms = list(coamps_forecasts.keys())
         storms.sort()
 
         # Check if forecast exists for the selected dates and make a dataframe
@@ -375,7 +375,7 @@ def save_to_nc(name, path, data):
                     if dd.source[it]:
                         da.attrs["source"] = dd.source[it]
                     ds[dd.quantity] = da
-                except:
+                except Exception:
                     print("Could not write " + dd.quantity + " to file ...")
 
         ds.to_netcdf(path=full_file_name)

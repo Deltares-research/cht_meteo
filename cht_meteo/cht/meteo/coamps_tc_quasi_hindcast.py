@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pyproj import CRS
 
-from .metget_utils import *
+from .metget_utils import MetGet, save_to_nc
 
 
 class Dataset:
