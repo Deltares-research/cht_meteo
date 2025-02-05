@@ -10,7 +10,6 @@ import importlib
 import os
 
 import geopandas as gpd
-import netCDF4 as nc
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -222,11 +221,10 @@ class MeteoGrid:
                                         filename = os.path.join(
                                             cycle_path, "coamps_used.txt"
                                         )
-                                        fid = open(filename, "w")
-                                        fid.write(
-                                            "Coamps data was used in this forecast \n"
-                                        )
-                                        fid.close()
+                                        with open(filename, "w") as fid:
+                                            fid.write(
+                                                "Coamps data was used in this forecast \n"
+                                            )
                                         break
                                 except Exception:
                                     continue
@@ -246,9 +244,8 @@ class MeteoGrid:
                         actualsource = d.src
                         if any(["coamps" in src for src in actualsource]):
                             filename = os.path.join(cycle_path, "coamps_used.txt")
-                            fid = open(filename, "w")
-                            fid.write("Coamps data was used in this forecast \n")
-                            fid.close()
+                            with open(filename, "w") as fid:
+                                fid.write("Coamps data was used in this forecast \n")
                             break
                     except Exception:
                         continue
@@ -287,9 +284,8 @@ class MeteoGrid:
                         actualsource = d.src
                         if any(["coamps" in src for src in actualsource]):
                             filename = os.path.join(path, "coamps_used.txt")
-                            fid = open(filename, "w")  # Why is there no path here?
-                            fid.write("Coamps data was used in this hindcast \n")
-                            fid.close()
+                            with open(filename, "w") as fid:
+                                fid.write("Coamps data was used in this hindcast \n")
                             break
                     except Exception:
                         continue
@@ -412,17 +408,18 @@ class MeteoGrid:
             return
 
         # Read in first file to get dimensions
-        dnc = nc.Dataset(requested_files[0])
-        lon = dnc["lon"][0::xystride].data
-        if lon[0] > 180.0:
-            lon = lon - 360.0
-        lat = dnc["lat"][0::xystride].data
-        lat = np.flip(lat)
-        nrows = len(lat)
-        ncols = len(lon)
-        ntime = len(requested_times)
-        self.x = lon
-        self.y = lat
+        with xr.open_dataset(requested_files[0]) as dnc:
+            # dnc = nc.Dataset(requested_files[0])
+            lon = dnc["lon"][0::xystride].data
+            if lon[0] > 180.0:
+                lon = lon - 360.0
+            lat = dnc["lat"][0::xystride].data
+            lat = np.flip(lat)
+            nrows = len(lat)
+            ncols = len(lon)
+            ntime = len(requested_times)
+            self.x = lon
+            self.y = lat
 
         for ind, param in enumerate(parameters):
             if param == "wind":
@@ -443,24 +440,25 @@ class MeteoGrid:
 
             for it, time in enumerate(requested_times):
                 #                print("Reading " + requested_files[it] + " ...")
-                dnc = nc.Dataset(requested_files[it])
-                uuu = dnc["wind_u"]
-                try:
-                    if param == "wind":
-                        uuu = dnc["wind_u"][:, :].data
-                        vvv = dnc["wind_v"][:, :].data
-                        uuu = np.flipud(uuu[0::xystride, 0::xystride])
-                        vvv = np.flipud(vvv[0::xystride, 0::xystride])
-                        matrix.u[it, :, :] = uuu
-                        matrix.v[it, :, :] = vvv
-                    #                        matrix.u[it,:,:] = np.flipud(dnc["wind_u"][0::xystride,0::xystride].data)
-                    #                        matrix.v[it,:,:] = np.flipud(dnc["wind_v"][0::xystride,0::xystride].data)
-                    else:
-                        uuu = dnc[param][:, :].data
-                        uuu = np.flipud(uuu[0::xystride, 0::xystride])
-                        matrix.val[it, :, :] = uuu
-                except Exception:
-                    print("Could not collect " + param + " from " + requested_files[it])
+                with xr.open_dataset(requested_files[it]) as dnc:
+                    # dnc = nc.Dataset(requested_files[it])
+                    uuu = dnc["wind_u"]
+                    try:
+                        if param == "wind":
+                            uuu = dnc["wind_u"][:, :].data
+                            vvv = dnc["wind_v"][:, :].data
+                            uuu = np.flipud(uuu[0::xystride, 0::xystride])
+                            vvv = np.flipud(vvv[0::xystride, 0::xystride])
+                            matrix.u[it, :, :] = uuu
+                            matrix.v[it, :, :] = vvv
+                        #                        matrix.u[it,:,:] = np.flipud(dnc["wind_u"][0::xystride,0::xystride].data)
+                        #                        matrix.v[it,:,:] = np.flipud(dnc["wind_v"][0::xystride,0::xystride].data)
+                        else:
+                            uuu = dnc[param][:, :].data
+                            uuu = np.flipud(uuu[0::xystride, 0::xystride])
+                            matrix.val[it, :, :] = uuu
+                    except Exception:
+                        print(f"Could not collect {param} from {requested_files[it]}")
 
             self.quantity.append(matrix)
 
@@ -1395,11 +1393,11 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
     xb = xx[ibelow]
     yb = yy[ibelow]
 
-    iin = np.where(
+    _in = np.where(
         (xb >= xlim[0]) & (xb <= xlim[1]) & (yb >= ylim[0]) & (yb <= ylim[1])
     )
-    xb = xb[iin]
-    yb = yb[iin]
+    xb = xb[_in]
+    yb = yb[_in]
 
     dx = x[1] - x[0]
     ng = round(2 * mindist / dx)
@@ -1414,10 +1412,10 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
 
             # Grid indices
             ix = np.where(x > xc)[0][0]
-            iy = np.where(y > yc)[0][0]
+            it = np.where(y > yc)[0][0]
 
-            i0 = max(iy - ng, 0)
-            i1 = min(iy + ng, np.size(y) - 1)
+            i0 = max(it - ng, 0)
+            i1 = min(it + ng, np.size(y) - 1)
             j0 = max(ix - ng, 0)
             j1 = min(ix + ng, np.size(x) - 1)
 
@@ -1431,7 +1429,7 @@ def find_cyclone_eyes(x, y, u, v, p, pcyc, mindist, xlim, ylim):
             #        xxxf, yyyf = np.meshgrid(xxxf,yyyf)
             #        try:
             F = interpolate.RectBivariateSpline(xxx, yyy, np.transpose(zzz))
-            #        except:
+            #        except Exception:
             #            shite=1
             zzzf = F(xxxf, yyyf)
             i, j = np.where(zzzf == np.min(zzzf))

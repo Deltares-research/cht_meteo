@@ -9,16 +9,15 @@ from .metget_utils import *
 class Dataset():
 
     def __init__(self):
-
         self.quantity = None
-        self.unit     = None
-        self.time     = []
-        self.x        = None
-        self.y        = None
-        self.crs      = None
-        self.val      = None
-        self.source   = []
-        self.metget   = None
+        self.unit = None
+        self.time = []
+        self.x = None
+        self.y = None
+        self.crs = None
+        self.val = None
+        self.source = []
+        self.metget = None
 
 
 def download(param_list, lon_range, lat_range, time_range, path, prefix=None, resolution=0.25, dt=3, config_path=None):
@@ -74,15 +73,17 @@ def download(param_list, lon_range, lat_range, time_range, path, prefix=None, re
         dataset.quantity = param
         dataset.x = lon
         dataset.y = lat
-        dataset.time = pd.to_datetime([tt.replace(tzinfo=None) for tt in requested_times]).to_pydatetime()
+        dataset.time = pd.to_datetime(
+            [tt.replace(tzinfo=None) for tt in requested_times]
+        ).to_pydatetime()
         if dataset.quantity == "wind":
-            dataset.u    = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.NaN
-            dataset.v    = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.NaN
+            dataset.u = np.empty((ntime, nrows, ncols))
+            dataset.u[:] = np.nan
+            dataset.v = np.empty((ntime, nrows, ncols))
+            dataset.v[:] = np.nan
         else:
-            dataset.val    = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.NaN
+            dataset.val = np.empty((ntime, nrows, ncols))
+            dataset.val[:] = np.nan
         datasets.append(dataset)
 
     # Loop through requested parameters
@@ -163,5 +164,3 @@ def download(param_list, lon_range, lat_range, time_range, path, prefix=None, re
 
 
     return datasets
-
-
