@@ -136,7 +136,7 @@ class MetGet:
         # Create time-series based on time_range and dt
         requested_times = pd.date_range(start=time_range[0],
                       end=time_range[1],
-                      freq=f'{dt}H').to_pydatetime().tolist()
+                      freq=f'{dt}h').to_pydatetime().tolist()
         requested_times = [ti.replace(tzinfo=datetime.timezone.utc) for ti in requested_times]
   
         # Check which of the available storm forecast all named storms 
@@ -206,7 +206,7 @@ class MetGet:
             cycles[storm] = pd.date_range(
                 start=date_transform(coamps_forecasts[storm]["first_available_cycle"]),
                 end=date_transform(coamps_forecasts[storm]["latest_available_cycle"]),
-                freq='6H').to_pydatetime()
+                freq='6h').to_pydatetime()
             
         # Get forecast used for each time-step
         for ti in df.index:
