@@ -45,14 +45,6 @@ def download(
     dss = {}  # prepare dictionary to save the datasets
     metadata = {}
 
-    # Get storm name
-    stms = df["storm_id"].unique()
-    if len(stms) != 1:
-        raise ValueError(
-            "There should be exactly one coamps-tc storm available for the requested times!"
-        )
-    priority_storm = stms[0]
-
     # Get variable names in metget
     variables = list(
         np.unique([var[1].metget_name for var in metget.meteo_variables.items()])
@@ -60,7 +52,7 @@ def download(
 
     # Prepare metget domain
     domain = (
-        [f"coamps-{priority_storm}"]
+        ["gfs"]
         + [resolution]
         + [lon_range[0], lat_range[0], lon_range[1], lat_range[1]]
     )
@@ -90,7 +82,7 @@ def download(
             nrows = len(lat)
             ncols = len(lon)
 
-    # Prepare datasets
+    # Prepare datasets to save
     datasets = []
     for param in param_list:
         dataset = Dataset()
@@ -118,48 +110,15 @@ def download(
         if dss[metget.meteo_variables[param].metget_name] is None:
             raise KeyError
 
-        # Check naming of files to get information on cycle used
-        naming_format = metadata[metget.meteo_variables[param].metget_name][
-            "input_files"
-        ][f"coamps-tc-{priority_storm}"][0]
-        if naming_format.split("_")[0] == "coamps-tc":
-            cycles_used = [
-                name.split("_")[2]
-                for name in metadata[metget.meteo_variables[param].metget_name][
-                    "input_files"
-                ][f"coamps-tc-{priority_storm}"]
-            ]
-            taus = [
-                name.split("_")[3].split(".")[0].split("tau")[1]
-                for name in metadata[metget.meteo_variables[param].metget_name][
-                    "input_files"
-                ][f"coamps-tc-{priority_storm}"]
-            ]
-            times = [
-                datetime.datetime.strptime(cycle, "%Y%m%d%H")
-                + datetime.timedelta(hours=int(tau))
-                for (cycle, tau) in zip(cycles_used, taus)
-            ]
-            times = [t.strftime("%Y%m%d%H%M") for t in times]
-        else:
-            raise ValueError
-
         for it, time_i in enumerate(requested_times):
-            inputs = [
-                name
-                for i, name in enumerate(
-                    metadata[metget.meteo_variables[param].metget_name]["input_files"][
-                        f"coamps-tc-{priority_storm}"
-                    ]
-                )
-                if time_i.strftime("%Y%m%d%H%M") in times[i]
-            ]
+            source = metadata[metget.meteo_variables[param].metget_name]["input_files"][
+                "gfs"
+            ][it]
+            # Check naming of files to get information on cycle used
+            tau = source.split(".")[-1].split("f")[-1]
             # get cycle info
-            cycle_used = inputs[0].split("_")[2]
-            cycle_hour = inputs[0].split("_")[3].split(".")[0].split("tau")[1]
-            dataset.source.append(
-                f"coamps_tc_{priority_storm}_{cycle_used}z_{cycle_hour}"
-            )
+            cycle_used = time_i - datetime.timedelta(hours=int(tau))
+            dataset.source.append(f'gfs_{cycle_used.strftime("%Y%m%d%H")}z_{tau}')
 
         # Get metadata of input used
         dataset.config = metadata[metget.meteo_variables[param].metget_name]["input"]

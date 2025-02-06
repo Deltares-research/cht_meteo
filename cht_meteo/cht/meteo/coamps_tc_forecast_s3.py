@@ -8,6 +8,7 @@ import xarray as xr
 from cht_utils import fileops as fo
 
 from cht_meteo.cht.meteo.dataset import MeteoDataset
+from cht_meteo.cht.meteo.metget_utils import get_storm_track
 
 
 class MeteoSubset:
@@ -171,25 +172,3 @@ def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
 
         # Write output file
         ds.to_netcdf(outfile)
-
-
-def get_storm_track(track_path: str, year: int, storm: str, cycle: str):
-    """
-    Retrieves the storm track data for a given year, storm, and cycle.
-
-    Parameters:
-    year (int): The year of the storm track data.
-    storm (str): The name of the storm.
-    cycle (str): The cycle of the storm track data.
-
-    Returns:
-    bytes: The content of the storm track data.
-
-    """
-    try:
-        filename = os.path.join(track_path, f"TRK_COAMPS_CTCX_3_{cycle}_{storm}.trk")
-        url = f"https://coamps-tc-data.s3.us-east-2.amazonaws.com/deterministic/realtime/{year}/{storm}/{cycle}/TRK_COAMPS_CTCX_3_{cycle}_{storm}"
-        urllib.request.urlretrieve(url, filename)
-    except Exception as e:
-        print(f"Error downloading {url}")
-        print(e)

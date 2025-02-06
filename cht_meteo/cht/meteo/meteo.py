@@ -24,7 +24,7 @@ from pyproj import Transformer
 from scipy import interpolate
 from shapely.geometry import Point
 
-from cht_meteo.cht.meteo.coamps_utils import get_storm_track
+from cht_meteo.cht.meteo.metget_utils import get_storm_track
 
 date_format = "%Y%m%d %H%M%S"
 
