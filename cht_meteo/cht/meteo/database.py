@@ -5,8 +5,8 @@ import toml
 
 from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecastS3
 from .dataset import MeteoDataset
-from .gfs_anl_0p50_05 import MeteoDatasetGFSAnalysis0p50
-from .gfs_forecast_0p25_v3 import MeteoDatasetGFSForecast0p25
+from .gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
+from .gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
 
 
 class MeteoDatabase:
