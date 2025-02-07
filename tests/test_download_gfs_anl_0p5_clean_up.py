@@ -25,10 +25,10 @@ gfs_anl = meteo.dataset(name="gfs_anl_0p50_atlantic",
     
 # Alternatively, we could use the following:
 # from cht_meteo.cht.meteo.gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
-# d = meteo.MeteoDatasetGFSAnalysis0p50(name="gfs_anl_0p50_atlantic",
-#                                       path=os.path.join(meteo_path, "gfs_anl_0p50_atlantic"),
-#                                       lon_range=[-80.0, -70.0],
-#                                       lat_range=[30.0, 40.0],)
+# d = MeteoDatasetGFSAnalysis0p50(name="gfs_anl_0p50_atlantic",
+#                                 path=os.path.join(meteo_path, "gfs_anl_0p50_atlantic"),
+#                                 lon_range=[-80.0, -70.0],
+#                                 lat_range=[30.0, 40.0],)
 
 # Download the data for the specified time range    
 gfs_anl.download(time_range)

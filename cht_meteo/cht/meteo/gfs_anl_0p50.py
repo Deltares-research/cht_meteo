@@ -220,7 +220,8 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                     ds0 = None
                     for iattempt in range(10):
                         try:
-                            ds0 = xr.load_dataset(url + name)
+                            # ds0 = xr.load_dataset(url + name)
+                            ds0 = xr.open_dataset(url + name)
                             if iattempt > 0:
                                 print("Success at attempt no " + int(iattempt + 1))
                             break
@@ -266,6 +267,8 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                                 r0 = val
 
                             ds[param] = xr.DataArray(val, dims=("lat", "lon"))
+
+                        ds0.close()
 
                     else:
                         print("Could not get data ...")
