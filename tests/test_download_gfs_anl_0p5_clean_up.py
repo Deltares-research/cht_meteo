@@ -1,49 +1,68 @@
 import shutil
 import tempfile
+import os
 from datetime import datetime
 from pathlib import Path
 
 # import pytest
 from pyproj import CRS
 
-from cht_meteo.cht.meteo import MeteoDataset
+import cht_meteo.cht.meteo as meteo
 
-def test_download_meteo(setup_temp_test_dir):
+meteo_path = "c:/work/temp/test_meteo_database"
 
-    d = MeteoDataset(source="gfs_anl_0p50",
-                    name="gfs_anl_0p50_atlantic",
-                    path=setup_temp_test_dir,
-                    lon_range=[-80, -70],
-                    lat_range=[30, 40],)
+time_range = [datetime(2024, 9, 26, 0, 0, 0), datetime(2024, 9, 27, 0, 0, 0)]
+lon_range = [-80.0, -70.0]
+lat_range = [30.0, 40.0]
+storm_number = "10L"
 
+# Create GFS dataset
+gfs_anl = meteo.dataset(name="gfs_anl_0p50_atlantic",
+                        source="gfs_analysis_0p50",                      
+                        path=os.path.join(meteo_path, "gfs_anl_0p50_atlantic"),
+                        lon_range=lon_range,
+                        lat_range=lat_range,)
+    
+# Alternatively, we could use the following:
+# from cht_meteo.cht.meteo.gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
+# d = meteo.MeteoDatasetGFSAnalysis0p50(name="gfs_anl_0p50_atlantic",
+#                                       path=os.path.join(meteo_path, "gfs_anl_0p50_atlantic"),
+#                                       lon_range=[-80.0, -70.0],
+#                                       lat_range=[30.0, 40.0],)
 
-    return d
+# Download the data for the specified time range    
+gfs_anl.download(time_range)
+gfs_anl.collect(time_range)
+    
+# And now for download COAMPS-TC forecast data
+ctc = meteo.dataset(name="coamps_tc_forecast_atlantic",
+                    source="coamps_tc_forecast_s3",
+                    path=os.path.join(meteo_path, "coamps_tc_forecast_atlantic"),
+                    lon_range=lon_range,
+                    lat_range=lat_range,)
 
-d = test_download_meteo("c:/work/temp/test_meteo_database/gfs_anl_0p50_atlantic")
-# def test_download_meteo(setup_temp_test_dir):
-#     params = ["wind", "barometric_pressure", "precipitation"]
-#     lat = 32.77
-#     lon = -79.95
+# Download the data for the specified time range
+# Since COAMPS-TC is a forecasts product, this should download several cycles
 
-#     # Download the actual datasets
-#     gfs_source = MeteoSource("gfs_anl_0p50", "gfs_anl_0p50_04", "hindcast", delay=None)
+# In addition to the time range, we also need to specify the storm number for COAMPS-TC forecasts
+ctc.download(time_range, storm_number=storm_number)
 
-#     # Create subset
-#     name = "gfs_anl_0p50_us_southeast"
-#     gfs_conus = MeteoGrid(
-#         name=name,
-#         source=gfs_source,
-#         parameters=params,
-#         path=setup_temp_test_dir,
-#         x_range=[lon - 1, lon + 1],
-#         y_range=[lat - 1, lat + 1],
-#         crs=CRS.from_epsg(4326),
-#     )
+# Collect the downloaded data
+ctc.collect(time_range)
 
-#     # Download and collect data
-#     t0 = datetime.strptime("20230101 000000", "%Y%m%d %H%M%S")
-#     t1 = datetime.strptime("20230101 020000", "%Y%m%d %H%M%S")
-#     time_range = [t0, t1]
+# Since ctc has 3 subsets, we need to interpolate onto a fixed grid
+# Create a new meteo dataset
+ctcf = ctc.cut_out(x_range=lon_range,
+                   y_range=lat_range,
+                   dx=0.1, dy=0.1,
+                  )
+
+# Fill gaps with GFS data
+ctcf.merge_datasets([gfs_anl])
+
+# Write to netcdf and delft3d
+ctcf.to_netcdf(filename=os.path.join(meteo_path, "coamps_tc_forecast_atlantic", "coamps_tc_forecast_atlantic.nc"))
+ctcf.to_delft3d(os.path.join(meteo_path, "coamps_tc_forecast_atlantic", "coamps_tc_forecast_atlantic"))
 
 #     gfs_conus.download(time_range)
 #     assert (

@@ -580,7 +580,6 @@ class MeteoDataset:
 
     def merge_datasets(self, datasets, **kwargs):
         """Merge datasets. This is useful when we have multiple datasets with different resolutions."""
-        # For now we just return the first dataset
         for dataset in datasets:
             self.interpolate_dataset(dataset)
 
