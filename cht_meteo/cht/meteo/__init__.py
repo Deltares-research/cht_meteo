@@ -7,5 +7,6 @@ Created on Sun Apr 25 10:58:08 2021
 """
 
 from cht_meteo.cht.meteo.database import MeteoDatabase
+from cht_meteo.cht.meteo.dataset import MeteoDataset
 
 __all__ = ["MeteoDatabase"]
