@@ -40,7 +40,8 @@ def test_coamps_tc_forecast_save_netcdf(request, dataset_fixture, time_range):
 )
 def test_coamps_tc_forecast_save_delft3d(request, dataset_fixture, time_range):
     dataset = request.getfixturevalue(dataset_fixture)
-    dataset.collect(time_range)
+    if "gfs" in dataset_fixture:
+        dataset.collect(time_range)
     temp_dir = Path(tempfile.gettempdir()) / "save_test_coamps_tc_data_delft3d"
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
