@@ -702,6 +702,8 @@ class MeteoDataset:
         """Write to netcdf files. This is not implemented yet."""
         if "file_name" in kwargs:
             # Write to single file
+            if "reftime" in list(self.ds.dims):
+                del self.ds["reftime"]
             self.ds.to_netcdf(path=kwargs["file_name"])
         else:
             # Write to database
