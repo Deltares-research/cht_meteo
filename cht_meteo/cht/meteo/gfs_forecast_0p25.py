@@ -14,7 +14,7 @@ import xarray as xr
 from siphon.catalog import TDSCatalog
 from xarray.backends import NetCDF4DataStore
 
-from cht_meteo.cht.meteo.dataset import MeteoDataset
+from .dataset import MeteoDataset
 
 
 class MeteoDatasetGFSForecast0p25(MeteoDataset):

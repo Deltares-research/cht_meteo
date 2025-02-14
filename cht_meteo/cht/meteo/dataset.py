@@ -1,5 +1,6 @@
 import datetime
 import os
+from typing import Optional
 
 import cht_utils.fileops as fo
 import numpy as np
@@ -580,7 +581,6 @@ class MeteoDataset:
 
     def merge_datasets(self, datasets, **kwargs):
         """Merge datasets. This is useful when we have multiple datasets with different resolutions."""
-        # For now we just return the first dataset
         for dataset in datasets:
             self.interpolate_dataset(dataset)
 
@@ -694,11 +694,11 @@ class MeteoDataset:
 
         return v
 
-    def to_netcdf(self, **kwargs):
+    def to_netcdf(self, file_name: Optional[os.PathLike] = None, **kwargs):
         """Write to netcdf files. This is not implemented yet."""
-        if "filename" in kwargs:
+        if file_name:
             # Write to single file
-            self.ds.to_netcdf(path=kwargs["filename"])
+            self.ds.to_netcdf(path=file_name)
         else:
             # Write to database
             os.makedirs(self.path, exist_ok=True)
@@ -716,7 +716,7 @@ class MeteoDataset:
 
     def to_delft3d(
         self,
-        file_name,
+        file_name: Optional[os.PathLike] = None,
         version="1.03",
         path=None,
         header_comments=False,
@@ -735,7 +735,7 @@ class MeteoDataset:
         if format == "ascii":
             write_to_delft3d_ascii(
                 self,
-                file_name,
+                str(file_name),
                 version,
                 path,
                 header_comments,
