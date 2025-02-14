@@ -20,10 +20,12 @@ def coamps_tc_dataset_cutout(coamps_tc_dataset, time_range, lon_range, lat_range
 @pytest.mark.parametrize(
     "dataset_fixture", ["coamps_tc_dataset_cutout", "gfs_anl_dataset", "gfs_fc_dataset"]
 )
-def test_coamps_tc_forecast_save_netcdf(request, dataset_fixture, time_range):
+def test_save_netcdf(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
-    if "gfs" in dataset_fixture:
+    if dataset_fixture == "gfs_anl_dataset":
         dataset.collect(time_range)
+    elif dataset_fixture == "gfs_fc_dataset":
+        dataset.collect(time_range_now)
     temp_dir = Path(tempfile.gettempdir()) / "save_netcdf"
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
@@ -38,10 +40,12 @@ def test_coamps_tc_forecast_save_netcdf(request, dataset_fixture, time_range):
 @pytest.mark.parametrize(
     "dataset_fixture", ["coamps_tc_dataset_cutout", "gfs_anl_dataset", "gfs_fc_dataset"]
 )
-def test_coamps_tc_forecast_save_delft3d(request, dataset_fixture, time_range):
+def test_save_delft3d(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
-    if "gfs" in dataset_fixture:
+    if dataset_fixture == "gfs_anl_dataset":
         dataset.collect(time_range)
+    elif dataset_fixture == "gfs_fc_dataset":
+        dataset.collect(time_range_now)
     temp_dir = Path(tempfile.gettempdir()) / "save_test_coamps_tc_data_delft3d"
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
