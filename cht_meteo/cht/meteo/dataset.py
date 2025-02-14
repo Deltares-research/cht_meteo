@@ -277,12 +277,7 @@ class MeteoDataset:
                             break
 
                     # Check if time of this cycle falls within requested range
-                    if (
-                        t_cycle > time_range[0]
-                        or t_cycle
-                        + datetime.timedelta(hours=self.source_forecast_duration)
-                        < time_range[1]
-                    ):
+                    if t_cycle < time_range[0] or t_cycle > time_range[1]:
                         # We can skip this cycle
                         continue
 
@@ -702,8 +697,6 @@ class MeteoDataset:
         """Write to netcdf files. This is not implemented yet."""
         if "file_name" in kwargs:
             # Write to single file
-            if "reftime" in list(self.ds.dims):
-                del self.ds["reftime"]
             self.ds.to_netcdf(path=kwargs["file_name"])
         else:
             # Write to database
