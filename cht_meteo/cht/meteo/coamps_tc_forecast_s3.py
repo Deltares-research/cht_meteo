@@ -9,11 +9,13 @@ from cht_utils import fileops as fo
 
 from .dataset import MeteoDataset
 
+
 class MeteoSubset:
     def __init__(self, name, moving):
         self.name = name
         self.moving = moving
         self.ds = xr.Dataset()
+
 
 class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
     # Inherit from MeteoDomain
@@ -137,6 +139,7 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         # Remove the temporary folder
         fo.delete_folder(tar_file_path)
 
+
 def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
     # Open the COAMPS-TC netcdf file
     with xr.open_dataset(inpfile) as dsin:
@@ -165,6 +168,7 @@ def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
 
         # Write output file
         ds.to_netcdf(outfile)
+
 
 def get_storm_track(track_path: str, year: int, storm: str, cycle: str):
     """
