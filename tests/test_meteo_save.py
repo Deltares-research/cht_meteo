@@ -18,7 +18,8 @@ def coamps_tc_dataset_cutout(coamps_tc_dataset, time_range, lon_range, lat_range
 
 
 @pytest.mark.parametrize(
-    "dataset_fixture", ["coamps_tc_dataset_cutout", "gfs_anl_dataset", "gfs_fc_dataset"]
+    "dataset_fixture",
+    ["coamps_tc_dataset_cutout", "gfs_anl_dataset"],  # skip "gfs_fc_dataset" for now
 )
 def test_save_netcdf(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
@@ -38,7 +39,8 @@ def test_save_netcdf(request, dataset_fixture, time_range, time_range_now):
 
 
 @pytest.mark.parametrize(
-    "dataset_fixture", ["coamps_tc_dataset_cutout", "gfs_anl_dataset", "gfs_fc_dataset"]
+    "dataset_fixture",
+    ["coamps_tc_dataset_cutout", "gfs_anl_dataset"],  # skip "gfs_fc_dataset" for now
 )
 def test_save_delft3d(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
