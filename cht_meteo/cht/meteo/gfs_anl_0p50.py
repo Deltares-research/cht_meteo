@@ -45,8 +45,7 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
         londeg = "east"
         if lon_range[0] < 0:
             londeg = "west"
-            lon_range[0] = 360.0 + lon_range[0]
-            lon_range[1] = 360.0 + lon_range[1]
+            lon_range = (360.0 + lon_range[0], 360.0 + lon_range[1])
         # lon_range[0] = np.mod(lon_range[0], 360.0)
         # lon_range[1] = np.mod(lon_range[1], 360.0)
 
