@@ -53,12 +53,9 @@ def gfs_anl_dataset(request, lon_range, lat_range, time_range):
     )
     gfs_anl.download(time_range)
 
-    def cleanup():
-        shutil.rmtree(temp_dir)
+    yield gfs_anl
 
-    request.addfinalizer(cleanup)
-
-    return gfs_anl
+    shutil.rmtree(temp_dir)
 
 
 @pytest.fixture(scope="session")
@@ -79,12 +76,9 @@ def gfs_fc_dataset(request, lon_range, lat_range, time_range_now):
     )
     gfs_for.download(time_range_now)
 
-    def cleanup():
-        shutil.rmtree(temp_dir)
+    yield gfs_for
 
-    request.addfinalizer(cleanup)
-
-    return gfs_for
+    shutil.rmtree(temp_dir)
 
 
 @pytest.fixture(scope="session")
@@ -105,9 +99,6 @@ def coamps_tc_dataset(request, lon_range, lat_range, time_range):
     )
     ctc.download(time_range, storm_number=storm_number)
 
-    def cleanup():
-        shutil.rmtree(temp_dir)
+    yield ctc
 
-    request.addfinalizer(cleanup)
-
-    return ctc
+    shutil.rmtree(temp_dir)

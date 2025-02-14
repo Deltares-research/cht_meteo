@@ -53,7 +53,7 @@ def test_save_delft3d(request, dataset_fixture, time_range, time_range_now):
         shutil.rmtree(temp_dir)
     temp_dir.mkdir(parents=True)
     file = temp_dir / "dataset"
-    dataset.to_delft3d(file_name=str(file))
+    dataset.to_delft3d(file_name=file)
 
     assert all(
         [Path(f"{file}.{ext}").is_file() for ext in ["amp", "ampr", "amu", "amv"]]
