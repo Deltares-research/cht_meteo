@@ -10,17 +10,17 @@ import cht_meteo.cht.meteo as meteo
 
 @pytest.fixture(scope="session")
 def lon_range():
-    return [-80.0, -70.0]
+    return (-80.0, -70.0)
 
 
 @pytest.fixture(scope="session")
 def lat_range():
-    return [30.0, 40.0]
+    return (30.0, 40.0)
 
 
 @pytest.fixture(scope="session")
 def time_range():
-    return [datetime(2024, 9, 26, 0, 0, 0), datetime(2024, 9, 26, 3, 0, 0)]
+    return (datetime(2024, 9, 26, 0, 0, 0), datetime(2024, 9, 26, 3, 0, 0))
 
 
 @pytest.fixture(scope="session")
@@ -32,7 +32,7 @@ def time_range_now():
         minute=0, second=0, microsecond=0
     )
 
-    time_range = [t0, t0 + timedelta(hours=3)]
+    time_range = (t0, t0 + timedelta(hours=3))
     return time_range
 
 
@@ -48,10 +48,10 @@ def gfs_anl_dataset(request, lon_range, lat_range, time_range):
         name=meteo_name,
         source="gfs_analysis_0p50",
         path=temp_dir,
-        lon_range=lon_range.copy(),
-        lat_range=lat_range.copy(),
+        lon_range=lon_range,
+        lat_range=lat_range,
     )
-    gfs_anl.download(time_range.copy())
+    gfs_anl.download(time_range)
 
     def cleanup():
         shutil.rmtree(temp_dir)
@@ -74,10 +74,10 @@ def gfs_fc_dataset(request, lon_range, lat_range, time_range_now):
         name=meteo_name,
         source="gfs_forecast_0p25",
         path=temp_dir,
-        lon_range=lon_range.copy(),
-        lat_range=lat_range.copy(),
+        lon_range=lon_range,
+        lat_range=lat_range,
     )
-    gfs_for.download(time_range_now.copy())
+    gfs_for.download(time_range_now)
 
     def cleanup():
         shutil.rmtree(temp_dir)
@@ -100,10 +100,10 @@ def coamps_tc_dataset(request, lon_range, lat_range, time_range):
         name=meteo_name,
         source="coamps_tc_forecast_s3",
         path=temp_dir,
-        lon_range=lon_range.copy(),
-        lat_range=lat_range.copy(),
+        lon_range=lon_range,
+        lat_range=lat_range,
     )
-    ctc.download(time_range.copy(), storm_number=storm_number)
+    ctc.download(time_range, storm_number=storm_number)
 
     def cleanup():
         shutil.rmtree(temp_dir)
