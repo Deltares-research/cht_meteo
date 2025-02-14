@@ -65,7 +65,7 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         # Get year from cycle_time
         year = cycle_time.year
         cycle_time_coamps = cycle_time.strftime("%Y%m%d%H")
-        cycle_time_meteo = cycle_time.strftime("%Y%m%d_%HZ")
+        cycle_time_meteo = cycle_time.strftime("%Y%m%d_%Hz")
 
         # Make folder for the forecast
         forecast_path = os.path.join(
