@@ -23,6 +23,8 @@ from shapely.geometry import Point
 import cht_meteo.misc.fileops as fops
 from cht_meteo.misc.misc_tools import interp2
 
+from pyproj import CRS 
+
 date_format = "%Y%m%d %H%M%S"
 
 
@@ -465,6 +467,60 @@ class MeteoGrid:
     def read_from_delft3d(self, file_name, crs=None):
         pass
 
+    
+    def add_wind(self, u, v):
+                self.u        = u
+                self.v        = v
+                self.name     = 'wind'
+                self.quantity.append(u, v)
+    class uvwind():
+
+        def __init__(self, u, v):
+            self.u        = u
+            self.v        = v
+            self.name     = 'wind'
+
+
+    def collect_based_netcdf(self, path = None, crs = CRS(4326)):
+
+        ds = xr.open_dataset(path)
+
+        # Extract coordinates
+        lon = ds["longitude"].values  # Extract longitudes
+        lat = ds["latitude"].values   # Extract latitudes
+
+        # Check if latitude is increasing (South to North)
+        if lat[0] > lat[-1]:  
+            print("Latitude is decreasing (North to South), flipping it...")
+            lat = np.flip(lat)
+            ds["u10"] = ds["u10"].isel(latitude=slice(None, None, -1))
+            ds["v10"] = ds["v10"].isel(latitude=slice(None, None, -1))
+
+        # Check if longitude is increasing (West to East)
+        if lon[0] > lon[-1]:  
+            print("Longitude is decreasing (East to West), flipping it...")
+            lon = np.flip(lon)
+            ds["u10"] = ds["u10"].isel(longitude=slice(None, None, -1))
+            ds["v10"] = ds["v10"].isel(longitude=slice(None, None, -1))
+
+        # Extract time values and convert to Python datetime
+        time_values = ds["valid_time"].values  
+        time_list = [pd.Timestamp(t).to_pydatetime() for t in time_values]
+
+        # Store values in object attributes
+        self.x = lon
+        self.y = lat
+        self.time = time_list
+        self.crs = crs  # Store CRS
+
+        # Extract wind components (already flipped if needed)
+        u = ds["u10"].values
+        v = ds["v10"].values
+        
+        self.quantity.append(self.uvwind(u, v))
+
+
+
     def write_to_delft3d(
         self,
         file_name,
@@ -633,8 +689,13 @@ class MeteoGrid:
 
             for it, time in enumerate(self.time):
                 dt = time - refdate
-                tim = dt.total_seconds() / 60
-                val = np.flipud(file["data"][it, :, :])
+            
+                try:
+                    tim = dt.total_seconds() / 60
+                except:
+                    tim = dt.values / np.timedelta64(1, "s")
+                #val = np.flipud(file["data"][it, :, :])
+                val = file["data"][it, :, :]
 
                 if param == "wind":
                     if np.max(val) > 1000.0:
@@ -725,7 +786,8 @@ class MeteoGrid:
             if self.time[-1] < time_range[1]:
                 dt = time_range[1] - refdate
                 tim = dt.total_seconds() / 60
-                val = np.flipud(file["data"][-1, :, :])
+                #val = np.flipud(file["data"][-1, :, :])
+                val = file["data"][-1, :, :]
                 # Skip blocks with only nans
                 if not np.all(np.isnan(val)):
                     val[val == np.nan] = -999.0
