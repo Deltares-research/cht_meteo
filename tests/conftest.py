@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import cht_meteo.cht.meteo as meteo
+import cht_meteo
 
 
 @pytest.fixture(scope="session")
@@ -44,7 +44,7 @@ def gfs_anl_dataset(request, lon_range, lat_range, time_range):
     temp_dir.mkdir(parents=True)
 
     meteo_name = "gfs_anl_0p50"
-    gfs_anl = meteo.dataset(
+    gfs_anl = cht_meteo.dataset(
         name=meteo_name,
         source="gfs_analysis_0p50",
         path=temp_dir,
@@ -67,7 +67,7 @@ def gfs_fc_dataset(request, lon_range, lat_range, time_range_now):
 
     meteo_name = "gfs_forecast_0p25"
     # Create GFS dataset
-    gfs_for = meteo.dataset(
+    gfs_for = cht_meteo.dataset(
         name=meteo_name,
         source="gfs_forecast_0p25",
         path=temp_dir,
@@ -90,7 +90,7 @@ def coamps_tc_dataset(request, lon_range, lat_range, time_range):
 
     meteo_name = "coamps_tc_forecast_s3"
     storm_number = "10L"
-    ctc = meteo.dataset(
+    ctc = cht_meteo.dataset(
         name=meteo_name,
         source="coamps_tc_forecast_s3",
         path=temp_dir,
