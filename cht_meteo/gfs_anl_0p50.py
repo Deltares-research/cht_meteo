@@ -7,232 +7,252 @@ Created on Thu May 20 10:32:33 2021
 
 import os
 
+# from pyproj import CRS
+# from metpy.units import units
+from datetime import datetime
+
 import numpy as np
-import pandas as pd
+
+# from siphon.catalog import TDSCatalog
+# from xarray.backends import NetCDF4DataStore
 import xarray as xr
-from pyproj import CRS
-from siphon.catalog import TDSCatalog
-from xarray.backends import NetCDF4DataStore
+
+from .dataset import MeteoDataset
 
 
-class Dataset:
-    def __init__(self):
-        self.quantity = None
-        self.unit = None
-        self.time = []
-        self.x = None
-        self.y = None
-        self.crs = None
-        self.val = None
-        self.u = None
-        self.v = None
+class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
+    # Inherit from MeteoDomain
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
+        # Set some source information
+        self.source_name = "gfs_analysis_0p50"
+        self.source_type = "analysis"
+        self.source_delay = 6
+        self.source_cycle_interval = 6
+        self.source_time_interval = 3
 
-def download(
-    param_list, lon_range, lat_range, path, prefix, time_range=None, times=None
-):
-    base_url = "https://www.ncei.noaa.gov/thredds/catalog/model-gfs-g4-anl-files-old/"
+    def download_analysis_times(self, requested_times, **kwargs):
+        """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
 
-    if times is not None:
-        requested_times = times
-        time_range = [times[0], times[-1]]
-    else:
-        requested_times = (
-            pd.date_range(start=time_range[0], end=time_range[1], freq="3H")
-            .to_pydatetime()
-            .tolist()
-        )
+        # ntime = len(requested_times)
+        toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
 
-    ntime = len(requested_times)
+        lon_range = self.lon_range
+        lat_range = self.lat_range
+        # GFS longitude is defined in degrees east (0 - 360)
+        # If the lon_range is defined in degrees west (-180 - 180), we need to convert it
+        londeg = "east"
+        if lon_range[0] < 0:
+            londeg = "west"
+            lon_range = (360.0 + lon_range[0], 360.0 + lon_range[1])
+        # lon_range[0] = np.mod(lon_range[0], 360.0)
+        # lon_range[1] = np.mod(lon_range[1], 360.0)
 
-    datasets = []
-    for param in param_list:
-        dataset = Dataset()
-        dataset.crs = CRS.from_epsg(4326)
-        dataset.quantity = param
-        datasets.append(dataset)
+        icont = False
 
-    icont = False
-    # Get lat,lon
-    for it, time in enumerate(requested_times):
-        h = requested_times[it].hour
-        month_string = requested_times[it].strftime("%Y%m")
-        date_string = requested_times[it].strftime("%Y%m%d")
-        url = base_url + month_string + "/" + date_string + "/catalog.xml"
-        try:
-            gfs = TDSCatalog(url)
-        except Exception:
-            gfs = []
-        cstr = "0000_000"
-        name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
-        okay = False
-        if gfs:
-            for j, ds in enumerate(gfs.datasets):
-                if ds == name:
-                    okay = True
-                    break
-        if not okay:
-            # Try the next time
-            continue
-        ncss = gfs.datasets[j].subset()
-        query = ncss.query()
-        query.lonlat_box(
-            north=lat_range[1], south=lat_range[0], east=lon_range[1], west=lon_range[0]
-        ).vertical_level(10.0)
-        query.variables(
-            "u-component_of_wind_height_above_ground",
-            "v-component_of_wind_height_above_ground",
-        )
-        data = ncss.get_data(query)
-        data = xr.load_dataset(NetCDF4DataStore(data))
-        lon = np.array(data["lon"])
-        lat = np.array(data["lat"])
-        nrows = len(lat)
-        ncols = len(lon)
-        # Latitude and longitude found, so we can stop now
-        icont = True
-        break
-
-    if not icont:
-        # Could not find any data
-        print("Could not find any data in requested range !")
-        datasets = []
-        return datasets
-
-    # initialize matrices
-    for dataset in datasets:
-        dataset.x = lon
-        dataset.y = lat
-        if dataset.quantity == "wind":
-            dataset.u = np.empty((ntime, nrows, ncols))
-            dataset.u[:] = np.nan
-            dataset.v = np.empty((ntime, nrows, ncols))
-            dataset.v[:] = np.nan
-        else:
-            dataset.val = np.empty((ntime, nrows, ncols))
-            dataset.val[:] = np.nan
-
-    for it, time in enumerate(requested_times):
-        h = time.hour
-        month_string = time.strftime("%Y%m")
-        date_string = time.strftime("%Y%m%d")
-        url = base_url + month_string + "/" + date_string + "/catalog.xml"
-
-        try:
-            gfs = TDSCatalog(url)
-        except Exception:
-            print("Could not fetch catalogue")
-            continue
-
-        if h == 0:
-            cstr = "0000_000"
-            crstr = "0000_003"
-            var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-        elif h == 3:
-            cstr = "0000_003"
-            crstr = "0000_006"
-            var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-        elif h == 6:
-            cstr = "0600_000"
-            crstr = "0600_003"
-            var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-        elif h == 9:
-            cstr = "0600_003"
-            crstr = "0600_006"
-            var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-        elif h == 12:
-            cstr = "1200_000"
-            crstr = "1200_003"
-            var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-        elif h == 15:
-            cstr = "1200_003"
-            crstr = "1200_006"
-            var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-        elif h == 18:
-            cstr = "1800_000"
-            crstr = "1800_003"
-            var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
-        elif h == 21:
-            cstr = "1800_003"
-            crstr = "1800_006"
-            var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
-        else:
-            print(
-                "ERROR: cycle and cycle_last in xml-file can only be specified rounded off on 3 hour values!"
-            )
-
-        # Loop through requested parameters
-        for ind, param in enumerate(param_list):
-            dataset = datasets[ind]
-            dataset.time.append(time)
-
-            if param == "precipitation":
-                name = "gfsanl_4_" + date_string + "_" + crstr + ".grb2"
-            else:
-                name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
-
+        # Get lat,lon
+        for it, time in enumerate(requested_times):
             try:
-                okay = False
-                makezeros = False
-                for j, ds in enumerate(gfs.datasets):
-                    if ds == name:
-                        okay = True
-                        break
+                h = requested_times[it].hour
+                month_string = requested_times[it].strftime("%Y%m")
+                date_string = requested_times[it].strftime("%Y%m%d")
 
-                if not okay:
-                    # File not found, on to the next parameter
-                    print("Warning! " + name + " was not found on server")
-                    makezeros = True
-                    # continue
+                # cstr  = "0000_000"
 
-                print(name + " : " + param)
+                if h == 0:
+                    cstr = "0000_000"
+                elif h == 3:
+                    cstr = "0000_003"
+                elif h == 6:
+                    cstr = "0600_000"
+                elif h == 9:
+                    cstr = "0600_003"
+                elif h == 12:
+                    cstr = "1200_000"
+                elif h == 15:
+                    cstr = "1200_003"
+                elif h == 18:
+                    cstr = "1800_000"
+                elif h == 21:
+                    cstr = "1800_003"
 
-                ncss = gfs.datasets[j].subset()
+                if time < toldnew:
+                    # Analysis data before May 15th, 2020 stored in different url
+                    base_url = "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files-old/"
+                    url = base_url + month_string + "/" + date_string + "/"
+                    name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
+                else:
+                    base_url = "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files/"
+                    url = base_url + month_string + "/" + date_string + "/"
+                    name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
 
-                if okay:
-                    if param == "wind":
-                        query = ncss.query()
-                        query.lonlat_box(
-                            north=lat_range[1],
-                            south=lat_range[0],
-                            east=lon_range[1],
-                            west=lon_range[0],
-                        ).vertical_level(10.0)
-                        query.variables(
-                            "u-component_of_wind_height_above_ground",
-                            "v-component_of_wind_height_above_ground",
-                        )
-                        data = ncss.get_data(query)
-                        with xr.open_dataset(NetCDF4DataStore(data)) as data:
-                            u = data["u-component_of_wind_height_above_ground"]
-                            v = data["v-component_of_wind_height_above_ground"]
-                            dataset.unit = u.units
-                            u = u.metpy.unit_array.squeeze()
-                            dataset.u[it, :, :] = np.array(u)
-                            v = v.metpy.unit_array.squeeze()
-                            dataset.v[it, :, :] = np.array(v)
+                full_url = url + name
+                with xr.open_dataset(full_url) as ds0:
+                    # Latitude and longitude
 
+                    # Data will be stored in ascending lat order !
+                    lon = ds0.lon.to_numpy()[:]
+                    lat = ds0.lat.to_numpy()[:]
+
+                    # Get lat, lon indices
+
+                    j1 = np.where(lon < lon_range[0])[0]
+                    if len(j1) > 0:
+                        j1 = j1[-1]
                     else:
-                        # Other scalar variables
-                        #                fac = 1.0
-                        if param == "barometric_pressure":
-                            var_name = "Pressure_reduced_to_MSL_msl"
-                        elif param == "precipitation":
-                            var_name = var_prcp
-                        #                    fac = 1.0
-                        query = ncss.query()
-                        query.lonlat_box(
-                            north=lat_range[1],
-                            south=lat_range[0],
-                            east=lon_range[1],
-                            west=lon_range[0],
-                        )
-                        query.variables(var_name)
-                        data = ncss.get_data(query)
-                        with xr.open_dataset(NetCDF4DataStore(data)) as data:
-                            val = data[var_name]
-                            dataset.unit = val.units
-                            val = np.array(val.metpy.unit_array.squeeze())
+                        j1 = 0
+
+                    j2 = np.where(lon > lon_range[1])[0]
+                    if len(j2) > 0:
+                        j2 = j2[0]
+                    else:
+                        j2 = len(lon)
+
+                    i1 = np.where(lat > lat_range[1])[0]
+                    if len(i1) > 0:
+                        i1 = i1[-1]
+                    else:
+                        i1 = 0
+
+                    i2 = np.where(lat < lat_range[0])[0]
+                    if len(i2) > 0:
+                        i2 = i2[0]
+                    else:
+                        i2 = len(lat)
+
+                    if i2 <= i1 or j2 <= j1:
+                        print("Error: cut-out is empty with given x_range and y_range")
+                        return
+
+                    # Latitude and longitude
+                    lat = lat[i1:i2]
+                    lon = lon[j1:j2]
+
+                    lat = np.flip(lat)
+
+                    if londeg == "west":
+                        lon = lon - 360.0
+
+                    # Latitude and longitude found, so we can stop now
+                    icont = True
+
+                break
+
+            except Exception as e:
+                print(e)
+                # Try another time
+                print("Could not read " + full_url + " !")
+
+        if not icont:
+            # Could not find any data
+            print("Could not find any data in requested range !")
+            return
+
+        r0 = np.zeros((np.size(lat), np.size(lon)))
+
+        # Let's try to parallelize this
+        for it, time in enumerate(requested_times):
+            # Make new xarray dataset
+            ds = xr.Dataset()
+            ds["lon"] = xr.DataArray(lon, dims=("lon"))
+            ds["lat"] = xr.DataArray(lat, dims=("lat"))
+
+            h = time.hour
+            month_string = time.strftime("%Y%m")
+            date_string = time.strftime("%Y%m%d")
+            url = base_url + month_string + "/" + date_string + "/"
+
+            if h == 0:
+                cstr = "0000_000"
+                crstr = "0000_003"
+                var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+            elif h == 3:
+                cstr = "0000_003"
+                crstr = "0000_006"
+                var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+            elif h == 6:
+                cstr = "0600_000"
+                crstr = "0600_003"
+                var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+            elif h == 9:
+                cstr = "0600_003"
+                crstr = "0600_006"
+                var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+            elif h == 12:
+                cstr = "1200_000"
+                crstr = "1200_003"
+                var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+            elif h == 15:
+                cstr = "1200_003"
+                crstr = "1200_006"
+                var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+            elif h == 18:
+                cstr = "1800_000"
+                crstr = "1800_003"
+                var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+            elif h == 21:
+                cstr = "1800_003"
+                crstr = "1800_006"
+                var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+            # else:
+            #     print('ERROR: hours need to be round of to 3 hour values!')
+
+            # Loop through requested parameters
+            param_list = ["wind", "barometric_pressure", "precipitation"]
+
+            for ind, param in enumerate(param_list):
+                if param == "precipitation":
+                    if time < toldnew:
+                        name = "gfsanl_4_" + date_string + "_" + crstr + ".grb2"
+                    else:
+                        name = "gfs_4_" + date_string + "_" + crstr + ".grb2"
+
+                else:
+                    if time < toldnew:
+                        name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
+                    else:
+                        name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
+
+                try:
+                    print(name + " : " + param)
+                    ds0 = None
+                    for iattempt in range(10):
+                        try:
+                            # ds0 = xr.load_dataset(url + name)
+                            ds0 = xr.open_dataset(url + name)
+                            if iattempt > 0:
+                                print("Success at attempt no " + int(iattempt + 1))
+                            break
+                        except Exception:
+                            # Try again
+                            pass
+
+                    if ds0:
+                        if param == "wind":
+                            u = ds0["u-component_of_wind_height_above_ground"][
+                                0, 0, i1:i2, j1:j2
+                            ].to_numpy()
+                            v = ds0["v-component_of_wind_height_above_ground"][
+                                0, 0, i1:i2, j1:j2
+                            ].to_numpy()
+
+                            u = np.flip(u, axis=0)
+                            v = np.flip(v, axis=0)
+
+                            ds["wind_u"] = xr.DataArray(u, dims=("lat", "lon"))
+                            ds["wind_v"] = xr.DataArray(v, dims=("lat", "lon"))
+
+                        else:
+                            # Other scalar variables
+                            if param == "barometric_pressure":
+                                var_name = "Pressure_reduced_to_MSL_msl"
+                            elif param == "precipitation":
+                                var_name = var_prcp
+
+                            val = ds0[var_name][0, i1:i2, j1:j2].to_numpy()
+                            val = np.flip(val, axis=0)
+
                             if param == "precipitation":
                                 # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
                                 # For the first, just divide by 3 to get hourly precip
@@ -240,90 +260,166 @@ def download(
                                 if h == 0 or h == 6 or h == 12 or h == 18:
                                     val = val / 3  # Convert to mm/h
                                 else:
-                                    val = (
-                                        val - 3 * np.squeeze(dataset.val[it - 1, :, :])
-                                    ) / 3
-                            dataset.val[it, :, :] = val
+                                    val = (val - 3 * np.squeeze(r0)) / 3
 
-                elif makezeros:  # add zeros
-                    if param == "wind":
-                        dataset.u[:] = 0
-                        dataset.v[:] = 0
-                        print(
-                            param
-                            + " was not found on server ... --> using 0.0 m/s instead !!!"
-                        )
+                                # Update r0
+                                r0 = val
 
-                    if param == "precipitation":
-                        dataset.val[:] = 0
-                        print(
-                            param
-                            + " was not found on server ... --> using 0.0 m/s instead !!!"
-                        )
+                            ds[param] = xr.DataArray(val, dims=("lat", "lon"))
 
-                    if param == "barometric_pressure":
-                        dataset.val[:] = 102000.0
-                        print(
-                            param
-                            + " was not found on server ... --> using 102000.0 Pa instead !!!"
-                        )
+                        ds0.close()
 
-            except Exception:
-                print("Could not download data")
+                    else:
+                        print("Could not get data ...")
 
-        # Write data to netcdf
-        time_string = time.strftime("%Y%m%d_%H%M")
-        file_name = prefix + "." + time_string + ".nc"
-        full_file_name = os.path.join(path, file_name)
-        ds = xr.Dataset()
+                except Exception:
+                    print("Could not download data")
 
-        okay = False
-        for ind, dataset in enumerate(datasets):
-            if dataset.quantity == "wind":
-                uu = dataset.u[it, :, :]
-                vv = dataset.v[it, :, :]
+            # Write to netcdf file
+            ds.to_netcdf(
+                path=os.path.join(
+                    self.path, self.name + "." + time.strftime("%Y%m%d_%H%M") + ".nc"
+                )
+            )
+            ds.close()
 
-                if not np.any(np.isnan(uu)) and not np.any(np.isnan(vv)):
-                    okay = True
+    # def download_time(time, lon, lat, base_url, toldnew):
 
-                    da = xr.DataArray(
-                        uu, coords=[("lat", dataset.y), ("lon", dataset.x)]
-                    )
-                    ds["wind_u"] = da
+    #     # Make new xarray dataset
+    #     ds = xr.Dataset()
+    #     ds["lon"] = xr.DataArray(lon, dims=("lon"))
+    #     ds["lat"] = xr.DataArray(lat, dims=("lat"))
 
-                    da = xr.DataArray(
-                        vv, coords=[("lat", dataset.y), ("lon", dataset.x)]
-                    )
-                    ds["wind_v"] = da
+    #     h            = time.hour
+    #     month_string = time.strftime("%Y%m")
+    #     date_string  = time.strftime("%Y%m%d")
+    #     url = base_url + month_string + "/" + date_string + "/"
 
-            else:
-                val = dataset.val[it, :, :]
+    #     if h==0:
+    #         cstr  = "0000_000"
+    #         crstr = "0000_003"
+    #         var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+    #     elif h==3:
+    #         cstr  = "0000_003"
+    #         crstr = "0000_006"
+    #         var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+    #     elif h==6:
+    #         cstr  = "0600_000"
+    #         crstr = "0600_003"
+    #         var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+    #     elif h==9:
+    #         cstr  = "0600_003"
+    #         crstr = "0600_006"
+    #         var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+    #     elif h==12:
+    #         cstr  = "1200_000"
+    #         crstr = "1200_003"
+    #         var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+    #     elif h==15:
+    #         cstr  = "1200_003"
+    #         crstr = "1200_006"
+    #         var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+    #     elif h==18:
+    #         cstr  = "1800_000"
+    #         crstr = "1800_003"
+    #         var_prcp = "Total_precipitation_surface_3_Hour_Accumulation"
+    #     elif h==21:
+    #         cstr  = "1800_003"
+    #         crstr = "1800_006"
+    #         var_prcp = "Total_precipitation_surface_6_Hour_Accumulation"
+    #     # else:
+    #     #     print('ERROR: hours need to be round of to 3 hour values!')
 
-                if not np.any(np.isnan(val)):
-                    okay = True
+    #     # Loop through requested parameters
+    #     param_list = ["wind", "barometric_pressure", "precipitation"]
 
-                    da = xr.DataArray(
-                        val, coords=[("lat", dataset.y), ("lon", dataset.x)]
-                    )
-                    ds[dataset.quantity] = da
-        if okay:
-            # Only write to file if there is any data
-            ds.to_netcdf(path=full_file_name)
+    #     for ind, param in enumerate(param_list):
 
-    return datasets
+    #         if param == "precipitation":
+    #             if time < toldnew:
+    #                 name = "gfsanl_4_" + date_string + "_" + crstr + ".grb2"
+    #             else:
+    #                 name = "gfs_4_" + date_string + "_" + crstr + ".grb2"
+
+    #         else:
+    #             if time < toldnew:
+    #                 name = "gfsanl_4_" + date_string + "_" + cstr + ".grb2"
+    #             else:
+    #                 name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
+
+    #         try:
+
+    #             okay = False
+
+    #             print(name + " : " + param)
+
+    #             for iattempt in range(10):
+    #                 try:
+    #                     ds0 = xr.open_dataset(url + name)
+    #                     if iattempt>0:
+    #                         print("Success at attempt no " + int(iattempt + 1))
+    #                     okay = True
+    #                     break
+    #                 except Exception:
+    #                     # Try again
+    #                     pass
+
+    #             if okay:
+
+    #                 if param == "wind":
+
+    #                     u   = ds0["u-component_of_wind_height_above_ground"][0, 0, i1:i2, j1:j2].to_numpy()
+    #                     v   = ds0["v-component_of_wind_height_above_ground"][0, 0, i1:i2, j1:j2].to_numpy()
+
+    #                     u = np.flip(u, axis=0)
+    #                     v = np.flip(v, axis=0)
+
+    #                     ds["wind_u"] = xr.DataArray(u, dims=("lat", "lon"))
+    #                     ds["wind_v"] = xr.DataArray(v, dims=("lat", "lon"))
+
+    #                 else:
+
+    #                     # Other scalar variables
+    #                     if param == "barometric_pressure":
+    #                         var_name = "Pressure_reduced_to_MSL_msl"
+    #                     elif param == "precipitation":
+    #                         var_name = var_prcp
+
+    #                     val = ds0[var_name][0, i1:i2, j1:j2].to_numpy()
+    #                     val = np.flip(val, axis=0)
+
+    #                     if param == "precipitation":
+    #                         # Data is stored either as 3-hourly (at 03h) or 6-hourly (at 06h) accumulated rainfall
+    #                         # For the first, just divide by 3 to get hourly precip
+    #                         # For the second, first subtract volume that fell in the first 3 hours
+    #                         if h==0 or h==6 or h==12 or h==18:
+    #                             val = val / 3 # Convert to mm/h
+    #                         else:
+    #                             val = (val - 3 * np.squeeze(r0)) / 3
+
+    #                         # Update r0
+    #                         r0  = val
+
+    #                     ds[param] = xr.DataArray(val, dims=("lat", "lon"))
+
+    #             else:
+    #                 print("Could not get data ...")
+
+    #         except Exception:
+
+    #             print("Could not download data")
 
 
-# Helper function for finding proper time variable
-def find_time_var(var, time_basename="time"):
-    for coord_name in var.coords:
-        if coord_name.startswith(time_basename):
-            return var.coords[coord_name]
-    raise ValueError("No time variable found for " + var.name)
+# # Helper function for finding proper time variable
+# def find_time_var(var, time_basename='time'):
+#     for coord_name in var.coords:
+#         if coord_name.startswith(time_basename):
+#             return var.coords[coord_name]
+#     raise ValueError('No time variable found for ' + var.name)
 
-
-# Helper function for finding proper time variable
-def find_height_var(var, time_basename="height"):
-    for coord_name in var.coords:
-        if coord_name.startswith(time_basename):
-            return var.coords[coord_name]
-    raise ValueError("No height variable found for " + var.name)
+# # Helper function for finding proper time variable
+# def find_height_var(var, time_basename='height'):
+#     for coord_name in var.coords:
+#         if coord_name.startswith(time_basename):
+#             return var.coords[coord_name]
+#     raise ValueError('No height variable found for ' + var.name)

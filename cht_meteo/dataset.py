@@ -9,8 +9,8 @@ import xarray as xr
 from pyproj import CRS, Transformer
 from scipy.interpolate import RegularGridInterpolator
 
-from cht_meteo.cht.meteo.dataset_to_delft3d import write_to_delft3d_ascii
-from cht_meteo.cht.meteo.dataset_to_json_wind import write_wind_to_json
+from cht_meteo.dataset_to_delft3d import write_to_delft3d_ascii
+from cht_meteo.dataset_to_json_wind import write_wind_to_json
 
 
 class MeteoDataset:
