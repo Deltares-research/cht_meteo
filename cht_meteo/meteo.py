@@ -483,6 +483,14 @@ class MeteoGrid:
 
     def collect_based_netcdf(self, path = None, crs = CRS(4326)):
 
+        """
+        Reads wind data from a NetCDF file, processes latitude and longitude order,
+        extracts time, and stores the wind components.
+        
+        :param path: Path to the NetCDF file.
+        :param crs: Coordinate Reference System (default is EPSG:4326).
+        """
+
         ds = xr.open_dataset(path)
 
         # Extract coordinates
