@@ -2,13 +2,13 @@ import datetime
 import os
 from typing import Optional
 
-import cht_utils.fileops as fo
 import numpy as np
 import pandas as pd
 import xarray as xr
 from pyproj import CRS, Transformer
 from scipy.interpolate import RegularGridInterpolator
 
+import cht_utils.fileops as fo
 from cht_meteo.dataset_to_delft3d import write_to_delft3d_ascii
 from cht_meteo.dataset_to_json_wind import write_wind_to_json
 
@@ -19,7 +19,7 @@ class MeteoDataset:
         self.name = None  # Name of the dataset
         self.path = None  # Path to the dataset
         self.long_name = None  # Long name of the dataset (not really needed)
-        self.source = None  # Source of the dataset
+        self.source = None  # Source of the dataset (currently one of "gfs_forecast_0p25", "gfs_analysis_0p50", "coamps_tc_forecast" or None)
         self.parameters = (
             None  # Parameters in the dataset (a list with strings). Not currently used.
         )
