@@ -22,7 +22,7 @@ dependencies = ["numpy", "scipy", "pandas", "geopandas", "siphon", "xarray", "sh
 dynamic = ["version"]
 
 [project.optional-dependencies]
-tests = ["pytest"]
+tests = ["pytest", "pytest-cov"]
 
 [tool.setuptools]
 zip-safe = true
