@@ -61,3 +61,7 @@ push = false
 ]
 "cht_meteo/__init__.py" = ["{__version__}"]
 "cht_meteo/misc/__init__.py" = ["{__version__}"]
+
+[tool.pytest.ini_options]
+addopts = "--cov cht_meteo --cov-report xml"
+testpaths = ["tests"]
