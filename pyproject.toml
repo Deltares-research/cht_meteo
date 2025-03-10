@@ -28,8 +28,7 @@ dependencies = [
     "toml",
     "tomli",
     "netCDF4",
-    "cht_utils",
-    "metget@ git+https://github.com/panosatha/MetGet.git"]
+    "cht_utils"]
 
 dynamic = ["version"]
 
