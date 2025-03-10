@@ -22,5 +22,3 @@ dependencies:
   - cht_utils
   - pre_commit
   - python=3.10
-  - pip:
-    - git+https://github.com/Deltares/cht_cyclones.git
