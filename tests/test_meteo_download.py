@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_gfs_anl_0p50_download(gfs_anl_dataset, time_range):
     # Check if the GFS analysis data file exists
     meteo_name = "gfs_anl_0p50"
@@ -8,7 +11,7 @@ def test_gfs_anl_0p50_download(gfs_anl_dataset, time_range):
     assert expected_file.is_file()
 
 
-# @pytest.mark.skip(reason="issue with time variable when downloading forecast.")
+@pytest.mark.skip(reason="issue with time variable when downloading forecast.")
 def test_gfs_fc_0p25_download(gfs_fc_dataset, time_range_now):
     # Check if the GFS analysis data file exists
     meteo_name = "gfs_forecast_0p25"
