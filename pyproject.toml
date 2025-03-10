@@ -18,7 +18,19 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pandas", "geopandas", "siphon", "xarray", "shapely", "pyproj", "netCDF4", "metpy", "pyyaml", "psutil", "cht_cyclones", "geojson"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "siphon",
+    "xarray",
+    "pyproj",
+    "metpy",
+    "toml",
+    "tomli",
+    "netCDF4",
+    "cht_utils",
+    "metget@ git+https://github.com/panosatha/MetGet.git"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
