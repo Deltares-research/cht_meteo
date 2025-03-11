@@ -8,19 +8,17 @@ dependencies:
   - build
   - mypy
   - pip
-  - pip:
-    - git+https://github.com/Deltares/cht_cyclones.git
   - numpy
   - scipy
   - siphon
   - xarray
   - pyproj
   - metpy
-  - netCDF4
   - pandas
-  - geopandas
-  - shapely
-  - yaml
   - pytest
+  - toml
+  - tomli
+  - netCDF4
+  - cht_utils
+  - pre_commit
   - python=3.10
-  - twine

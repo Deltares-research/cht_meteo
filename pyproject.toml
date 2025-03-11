@@ -4,13 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cht_meteo"
-#TODO
-#description = "Combining of tidal components to time series"
+description = "Downloading meteorological data from various sources"
 readme = "README.md"
 authors = [
     { name = "Maarten van Ormondt", email = "maarten.vanormondt@deltares.nl"},
-    { name = "Julian Hofer", email = "Julian.Hofer@deltares.nl" },
-    { name = "Sarwan Peiter", email = "Sarwan.Peiter@deltares.nl" },
+    { name = "Panos Athanasiou", email = "Panos.Athanasiou@deltares.nl"},
+    { name = "Luuk Blom", email = "Luuk.Blom@deltares.nl"},
 ]
 license = { text = "MIT" }
 classifiers = [
@@ -18,7 +17,19 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pandas", "geopandas", "siphon", "xarray", "shapely", "pyproj", "netCDF4", "metpy", "pyyaml", "psutil", "cht_cyclones", "geojson"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "siphon",
+    "xarray",
+    "pyproj",
+    "metpy",
+    "toml",
+    "tomli",
+    "netCDF4",
+    "cht_utils"]
+
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -34,7 +45,6 @@ version = { attr = "cht_meteo.__version__" }
 include = ["cht_meteo","cht_meteo.*"]
 exclude = ["tests","tests.*"]
 
-
 [tool.setuptools.package-data]
 "cht_observations" = ["py.typed"]
 
@@ -42,25 +52,6 @@ exclude = ["tests","tests.*"]
 [project.urls]
 Source = "https://github.com/Deltares/cht_meteo"
 #Documentation = "https://deltares.github.io/CoastalHazardTools"
-
-[tool.bumpver]
-current_version = "0.1.0"
-version_pattern = "MAJOR.MINOR.PATCH"
-commit_message = "bump version {old_version} -> {new_version}"
-commit = true
-tag = true
-push = false
-
-[tool.bumpver.file_patterns]
-"pyproject.toml" = [
-    'current_version = "{version}"',
-]
-"README.md" = [
-    "{version}",
-    "{pep440_version}",
-]
-"cht_meteo/__init__.py" = ["{__version__}"]
-"cht_meteo/misc/__init__.py" = ["{__version__}"]
 
 [tool.pytest.ini_options]
 addopts = "--cov cht_meteo --cov-report xml"
