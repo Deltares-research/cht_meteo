@@ -48,10 +48,8 @@ exclude = ["tests","tests.*"]
 [tool.setuptools.package-data]
 "cht_observations" = ["py.typed"]
 
-# TODO
 [project.urls]
 Source = "https://github.com/Deltares/cht_meteo"
-#Documentation = "https://deltares.github.io/CoastalHazardTools"
 
 [tool.pytest.ini_options]
 addopts = "--cov cht_meteo --cov-report xml"
