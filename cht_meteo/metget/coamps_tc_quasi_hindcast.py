@@ -65,9 +65,21 @@ def download(
         + [lon_range[0], lat_range[0], lon_range[1], lat_range[1]]
     )
     for var in variables:
+        # For rain we always request hourly and then recalculate
+        # TODO take into account what happens for dt > 1
+        if var == "rain":
+            dt_used = dt
+            time_range_used = (
+                time_range[0],
+                time_range[1] + datetime.timedelta(hours=dt),
+            )
+        else:
+            dt_used = dt
+            time_range_used = time_range
+        # Download data
         ds, meta = metget.get_meteo(
-            time_range=time_range,
-            dt=dt,
+            time_range=time_range_used,
+            dt=dt_used,
             domain=domain,
             var=var,
             multiple_forecasts=True,
@@ -144,7 +156,13 @@ def download(
         else:
             raise ValueError
 
-        for it, time_i in enumerate(requested_times):
+        if param == "precipitation":
+            times_check = requested_times.union(
+                [requested_times[-1] + datetime.timedelta(hours=dt)]
+            )
+        else:
+            times_check = requested_times
+        for it, time_i in enumerate(times_check):
             inputs = [
                 name
                 for i, name in enumerate(
@@ -209,7 +227,10 @@ def download(
                 val = val.fillna(metget.meteo_variables[param].fill_value)
 
             val = np.array(val.metpy.unit_array.squeeze())
-
+            # For precipitation shift times so we get precipitation over the next hour
+            if param == "precipitation":
+                val = val[1:, :, :]
+                dataset.source = dataset.source[1:]
             if reverse:
                 dataset.val = np.array(val[:, ::-1, :])
             else:
