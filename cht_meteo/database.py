@@ -7,11 +7,13 @@ from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecastS3
 from .dataset import MeteoDataset
 from .gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
 from .gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
+from .gfs_forecast_0p25_ncar_archive import MeteoDatasetGFSForecast0p25NCARArchive
 
 
 class MeteoDatabase:
-    def __init__(self):
-        self.path = None
+    def __init__(self, path=None):
+        # Initialize the database
+        self.path = path
         self.dataset = {}
         # self.source = {}
         # self.set_sources()
@@ -23,7 +25,14 @@ class MeteoDatabase:
 
     def list_sources(self):
         # Returns a list the available sources
-        return ["gfs_forecast", "coamps_tc_forecast"]
+        return ["gfs_forecast_0p25", "gfs_analysis_0p50", "coamps_tc_forecast"]
+
+    def list_dataset_names(self):
+        # Returns a list the available sources
+        lst = []
+        for dataset_name, dataset in self.dataset.items():
+            lst.append(dataset_name)
+        return lst    
 
     def add_dataset(self, dataset_name, source_name, **kwargs):
         # Add a dataset to the database
@@ -36,6 +45,10 @@ class MeteoDatabase:
                 )
             elif source_name == "gfs_forecast_0p25":
                 md = MeteoDatasetGFSForecast0p25(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
+            elif source_name == "gfs_forecast_0p25_ncar_archive":
+                md = MeteoDatasetGFSForecast0p25NCARArchive(
                     name=dataset_name, path=dataset_path, **kwargs
                 )
             elif source_name == "gfs_analysis_0p50":
