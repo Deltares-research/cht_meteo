@@ -1,5 +1,7 @@
+import copy
 import datetime
 import os
+import time
 from typing import Optional
 
 import cht_utils.fileops as fo
@@ -34,12 +36,7 @@ class MeteoDataset:
         self.crs = CRS(4326)  # Coordinate reference system of the dataset
         self.tau = 0  # Time interval in hours between cycle and data
         self.last_analysis_time = None  # Time of last analysis in the dataset
-
-        # Loop through kwargs to set attributes
-        reserved_keys = ["x", "y", "lon", "lat", "time"]
-        for key, value in kwargs.items():
-            if key not in reserved_keys:
-                setattr(self, key, value)
+        self.resolution = 9999
 
         # Set some source information
         self.source_name = ""  # Name of the source
@@ -50,6 +47,12 @@ class MeteoDataset:
         self.source_forecast_duration = (
             240  # The length of the forecast in hours that will be downloaded
         )
+
+        # Loop through kwargs to set attributes
+        reserved_keys = ["x", "y", "lon", "lat", "time"]
+        for key, value in kwargs.items():
+            if key not in reserved_keys:
+                setattr(self, key, value)
 
         # Empty list for subsets (only for COAMPS-TC for now)
         self.subset = []
@@ -345,63 +348,63 @@ class MeteoDataset:
                     os.path.join(self.path, "*" + subsetstr + "*.nc")
                 )
                 for file in files_in_cycle:
-                    t_file = datetime.datetime.strptime(file[-16:-3], "%Y%m%d_%H%M")
+                    t_file = datetime.datetime.strptime(file[-15:-3], "%Y%m%d%H%M")
                     if t_file >= time_range[0] and t_file <= time_range[1]:
                         file_list.append(os.path.join(self.path, file))
                         time_list.append(t_file)
 
-            # Now we loop through the files, read them and store them in large array
-            time = np.array(time_list)
-
+            # Now we loop through the files, read them and store them in large lazy array
             if not time_list:
                 print("No meteo data files found within requested time range")
                 return
 
-            ntime = len(time_list)
+            # Create datasets with injected time coordinate
+            datasets = [
+                add_time_coord(
+                    xr.open_dataset(f, chunks={"lat": 256, "lon": 256}), t, moving
+                )
+                for f, t in zip(file_list, time_list)
+            ]
 
-            # Read in first file to get lons and lats
-            with xr.open_dataset(file_list[0]) as ds0:
-                lon = ds0["lon"].to_numpy()[:]
-                if lon[0] > 180.0:
-                    lon = lon - 360.0
-                lat = ds0["lat"].to_numpy()[:]
+            ds = xr.concat(datasets, dim="time")
 
-            # Create new dataset
-            ds = xr.Dataset()
-            # Add time dimension
-            ds["time"] = xr.DataArray(time, dims=("time"))
-            # Add the lon and lat
-            if moving:
-                lons = np.empty((ntime, len(lon)))
-                lats = np.empty((ntime, len(lat)))
-                ds["lon"] = xr.DataArray(lons, dims=("time", "lon"))
-                ds["lat"] = xr.DataArray(lats, dims=("time", "lat"))
-            else:
-                ds["lon"] = xr.DataArray(lon, dims=("lon"))
-                ds["lat"] = xr.DataArray(lat, dims=("lat"))
+            # add physically logical fill values to the variables
+            # NOTE is this needed here, also happens when writing it seems?
+            fill_values = {
+                "wind_u": 0.0,
+                "wind_v": 0.0,
+                "precipitation": 0.0,
+                "barometric_pressure": 101300.0,
+            }
 
-            # First we create empty data arrays
             for var in self.var_names:
-                if var == "wind_u" or var == "wind_v" or var == "precipitation":
-                    vdefault = 0.0
-                elif var == "barometric_pressure":
-                    vdefault = 101300.0
-                v = np.zeros((ntime, len(lat), len(lon))) + vdefault
-                ds[var] = xr.DataArray(v, dims=("time", "lat", "lon"))
+                fill_value = fill_values.get(var, 0.0)  # Default fallback
+                if var in ds:
+                    ds[var] = ds[var].where(~np.isnan(ds[var]), other=fill_value)
 
-            # Now loop through times
-            for it, file in enumerate(file_list):
-                # Read in file
-                with xr.open_dataset(file) as dsin:
-                    if moving:
-                        lon = dsin["lon"].to_numpy()
-                        lat = dsin["lat"].to_numpy()
-                        ds["lon"][it, :] = lon
-                        ds["lat"][it, :] = lat
-                    for var in self.var_names:
-                        if var in dsin:
-                            # Get the data
-                            ds[var][it, :, :] = dsin[var].to_numpy()
+            # Normalize longitude to [-180, 180] if needed
+            lon = ds["lon"]
+            if np.any(lon > 180.0):
+                if moving:
+                    ds["lon"].values -= 360
+                else:
+                    ds = ds.assign_coords(lon=ds["lon"].values - 360.0)
+
+            # Make sure files are oriented S-N
+            lat = ds["lat"]
+            if lat.ndim == 1:
+                if lat[0] > lat[-1]:
+                    ds = ds.isel(lat=slice(None, None, -1))
+            elif lat.ndim == 2:
+                if np.nanmean(lat[0]) > np.nanmean(lat[-1]):
+                    ds = ds.isel(lat=slice(None, None, -1))
+
+            if "lazy" in kwargs:
+                # if False, still load the dataset
+                if not kwargs["lazy"]:
+                    ds = ds.load()
+            else:
+                ds = ds.load()
 
             if subsets:
                 # Store the data in the subset
@@ -487,7 +490,8 @@ class MeteoDataset:
                 dy = np.mean(np.diff(y))
                 x = np.arange(x[0], x[-1], dx)
                 y = np.arange(y[0], y[-1], dy)
-
+                # Reset to None
+                dx, dy = None, None
             # Limit x, y
             ix0 = np.where(x <= x_range[0])[0]
             if len(ix0) > 0:
@@ -547,8 +551,84 @@ class MeteoDataset:
             t = t[(t >= time_range[0]) & (t <= time_range[1])]
 
         # Create new dataset
-        dataset = MeteoDataset(name=name, x=x, y=y, time=t, crs=crs)
-        dataset.interpolate_dataset(self)
+        if len(self.subset) > 0 or crs != self.crs:
+            start_time = time.time()
+            dataset = MeteoDataset(name=name, x=x, y=y, time=t, crs=crs)
+            # make deepcopy of self to avoid modifying the original dataset and clip to new extent
+            self_clipped = copy.deepcopy(self)
+            start_time = time.time()
+            # Transformer from new dataset to original dataset CRS
+            transformer = Transformer.from_crs(dataset.crs, self.crs, always_xy=True)
+            xg, yg = np.meshgrid(x, y)
+            xg_t, yg_t = transformer.transform(xg, yg)
+            if len(self.subset) > 0:
+                # Clip all datasets in the subsets
+                for isub in range(len(self.subset)):
+                    self_clipped.subset[isub].ds = (
+                        self_clipped.subset[isub]
+                        .ds.sel(
+                            lon=slice(xg_t.min(), xg_t.max()),
+                            lat=slice(yg_t.min(), yg_t.max()),
+                            time=slice(t[0], t[-1]),
+                        )
+                        .load()
+                    )
+            else:
+                # Clip the main dataset
+                self_clipped.ds = self_clipped.ds.sel(
+                    lon=slice(xg_t.min(), xg_t.max()),
+                    lat=slice(yg_t.min(), yg_t.max()),
+                    time=slice(t[0], t[-1]),
+                ).load()
+            end_time = time.time()
+            print(
+                f"Clipping and loading subsets took: {end_time - start_time:.4f} seconds"
+            )
+            start_time = time.time()
+            dataset.interpolate_dataset(self_clipped)
+            end_time = time.time()
+            print(f"Interpolate subsets took: {end_time - start_time:.4f} seconds")
+        else:
+            dataset = copy.deepcopy(self)
+            start_time = time.time()
+            dataset.ds = dataset.ds.sel(
+                lon=slice(x[0], x[-1]), lat=slice(y[0], y[-1]), time=slice(t[0], t[-1])
+            )
+            end_time = time.time()
+            print(f"Execution time lazy clipping: {end_time - start_time:.4f} seconds")
+            # Interpolate to new grid when dx and dy were initially provided
+            if dx is not None and dy is not None:
+                start_time = time.time()
+                dataset.ds = dataset.ds.interp(lat=y, lon=x, method="linear")
+                end_time = time.time()
+                print(
+                    f"Execution lazy interpolation: {end_time - start_time:.4f} seconds"
+                )
+
+            start_time = time.time()
+            fill_values = {
+                "wind_u": 0.0,
+                "wind_v": 0.0,
+                "precipitation": 0.0,
+                "barometric_pressure": 101300.0,
+            }
+
+            # Loop over the dictionary and apply fill values where needed
+            for var, fill_value in fill_values.items():
+                if var in dataset.ds:
+                    dataset.ds[var] = dataset.ds[var].where(
+                        ~np.isnan(dataset.ds[var]), other=fill_value
+                    )
+            end_time = time.time()
+            print(f"Execution filling nodata: {end_time - start_time:.4f} seconds")
+
+            # load the dataset for faster writing
+            start_time = time.time()
+            dataset.ds.load()
+            end_time = time.time()
+            print(
+                f"Execution time loading dataset: {end_time - start_time:.4f} seconds"
+            )
 
         return dataset
 
@@ -779,3 +859,18 @@ class MeteoDataset:
             ds = self.ds
         t = ds["time"].to_numpy()
         return t
+
+
+def add_time_coord(ds, date, moving):
+    """Function to add a time-coordinate to a xr.DataSet"""
+    # Inject a new time coordinate
+    ds = ds.expand_dims(time=[date])  # Make sure time has length 1
+
+    # Promote lat/lon from coordinates to variables if needed for moving grids
+    if moving:
+        for coord in ["lat", "lon"]:
+            # Expand along time and assign back — even if it's a coord
+            ds[coord] = ds[coord].expand_dims(time=[date])
+        # Move from coordinates to variables
+        ds = ds.reset_coords(["lat", "lon"])
+    return ds
