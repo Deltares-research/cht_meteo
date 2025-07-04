@@ -56,14 +56,18 @@ class MeteoDatabase:
                     name=dataset_name, path=dataset_path, **kwargs
                 )
             else:
-                md = MeteoDataset(name=dataset_name)
+                md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
                 print(
                     f"Error while reading meteo database : source {source_name} not recognized"
                 )
 
+                # #TODO do we want to add download functionality in a flexible way to the generic MeteoDatasets? E.g. using a file with download function only. 
+                # if "download_forecast_cycle" in kwargs:
+                #     md.download_forecast_cycle = download
+
         else:
             # Use generic meteo dataset (this does not have download functionality)
-            md = MeteoDataset(name=dataset_name)
+            md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
 
         # Add to database
         self.dataset[dataset_name] = md
@@ -92,23 +96,18 @@ class MeteoDatabase:
         dataset_list = contents["meteo_dataset"]
         # Loop through datasets and add them to the database
         for meteo_dataset in dataset_list:
-            if "x_range" in meteo_dataset:
-                lon_range = meteo_dataset["x_range"]
-            else:
-                lon_range = None
-            if "y_range" in meteo_dataset:
-                lat_range = meteo_dataset["y_range"]
-            else:
-                lat_range = None
-            if "tau" in meteo_dataset:
-                tau = meteo_dataset["tau"]
-            else:
-                tau = 0
+            # pop most common variables from dict, rest is parsed through kwargs
+            dataset_name = meteo_dataset.pop("name")
+            source_name = meteo_dataset.pop("source")
+            lon_range = meteo_dataset.pop("x_range", None)
+            lat_range = meteo_dataset.pop("y_range", None)
+            tau = meteo_dataset.pop("tau", 0)
 
             self.add_dataset(
-                meteo_dataset["name"],
-                source_name=meteo_dataset["source"],
+                dataset_name=dataset_name,
+                source_name=source_name,
                 lon_range=lon_range,
                 lat_range=lat_range,
                 tau=tau,
+                **meteo_dataset
             )
