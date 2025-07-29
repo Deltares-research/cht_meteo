@@ -1,7 +1,8 @@
 import os
 
 import numpy as np
-
+import xarray as xr
+import pandas as pd
 
 def write_to_delft3d_ascii(
     dataset,
@@ -63,39 +64,6 @@ def write_to_delft3d_ascii(
             file["unit"] = "mm h-1"
             file["fmt"] = "%7.1f"
             files.append(file)
-
-    # if dataset.quantity == "x_wind":
-    #     unit = "m s-1"
-    #     ext  = "amu"
-    #     fmt  = "%6.1f"
-    # elif dataset.quantity == "y_wind":
-    #     unit = "m s-1"
-    #     ext  = "amv"
-    #     fmt  = "%6.1f"
-    # elif dataset.quantity == "air_pressure":
-    #     unit = "Pa"
-    #     ext  = "amp"
-    #     fmt  = "%7.0f"
-    # elif dataset.quantity == "air_temperature":
-    #     unit = "Celsius"
-    #     ext  = "amt"
-    #     fmt  = "%7.1f"
-    # elif dataset.quantity == "relative_humidity":
-    #     unit = "%"
-    #     ext  = "amr"
-    #     fmt  = "%7.1f"
-    # elif dataset.quantity == "cloudiness":
-    #     unit = "%"
-    #     ext  = "amc"
-    #     fmt  = "%7.1f"
-    # elif dataset.quantity == "sw_radiation_flux":
-    #     unit = "W/m2"
-    #     ext  = "ams"
-    #     fmt  = "%7.1f"
-    # elif dataset.quantity == "precipitation":
-    #     unit = "mm/h"
-    #     ext  = "ampr"
-    #     fmt  = "%7.1f"
 
     for file in files:
         if "lon" in dataset.ds:
@@ -294,3 +262,90 @@ def write_to_delft3d_ascii(
                 np.savetxt(fid, val, fmt=file["fmt"])
 
         fid.close()
+
+def write_to_delft3d_netcdf(
+    dataset,
+    file_name,
+    path=None,
+    refdate=None,
+    parameters=None,
+):
+    # Convert numpy.datetime64 to datetime
+    time = dataset.ds.time.to_numpy().astype("M8[s]").astype("O")
+
+    if not refdate:
+        refdate = time[0]
+
+    if not parameters:
+        parameters = ["wind", "barometric_pressure", "precipitation"]
+
+    files = []
+    for param in parameters:
+        if param == "wind":
+            file = {}
+            file["davars"] = ["x_wind", "y_wind"]
+            file["ncvars"] = ["eastward_wind", "northward_wind"]
+            file["ext"]    = "_wind"
+            file["unit"]   = "m s-1"
+            files.append(file)
+        elif param == "barometric_pressure":
+            file = {}
+            file["data"] = dataset.ds["barometric_pressure"].to_numpy()[:]
+            file["ext"] = "amp"
+            file["quantity"] = "air_pressure"
+            file["unit"] = "Pa"
+            file["fmt"] = "%7.0f"
+            files.append(file)
+        elif param == "precipitation":
+            file = {}
+            file["davars"] = ["precipitation"]
+            file["ncvars"] = ["precipitation"]
+            file["ext"]    = "_precipitation"
+            file["unit"]   = "mm h-1"
+            files.append(file)
+
+    # Convert times to float minutes since 1970-01-01
+    # subtract np.datetime64 from datetime.datetime object
+    time = pd.to_datetime(time)
+    float_minutes = ((time - np.datetime64("1970-01-01T00:00:00")) / pd.Timedelta(seconds=60)).to_numpy()
+
+    for file in files:
+
+        if "lon" in dataset.ds:
+            # ncols = len(dataset.ds.lon)
+            x = dataset.ds.lon.to_numpy()[:]
+        else:
+            # ncols = len(dataset.ds.x)
+            x = dataset.ds.x.to_numpy()[:]
+        if "lat" in dataset.ds:
+            # nrows = len(dataset.ds.lat)
+            y = dataset.ds.lat.to_numpy()[:]
+        else:
+            # nrows = len(dataset.ds.y)
+            y = dataset.ds.y.to_numpy()[:]
+
+        if path:
+            full_file_name = os.path.join(path, file_name + file["ext"] + ".nc")
+        else:
+            full_file_name = file_name + file["ext"] + ".nc"
+
+        ds = xr.Dataset()
+
+        ds["time"] = xr.DataArray(float_minutes, dims=["time"])
+        ds["time"].attrs["units"] = "minutes since 1970-01-01 00:00:00.0 +0000"
+        ds["x"] = xr.DataArray(x, dims=["ncols"])
+        ds["y"] = xr.DataArray(y, dims=["nrows"])
+        for davar, ncvar in zip(file["davars"], file["ncvars"]):
+            if davar in dataset.ds:
+                ds[ncvar] = xr.DataArray(dataset.ds[davar].to_numpy()[:], dims=["time", "nrows", "ncols"])
+                ds[ncvar].attrs["units"] = file["unit"]
+                ds[ncvar].attrs["long_name"] = davar.replace("_", " ").capitalize()
+            else:
+                print(f"Warning: {davar} not found in dataset. Skipping {ncvar}.")
+
+        # Add attributes
+        ds.attrs["description"] = "SFINCS meteo forcing"
+
+        # Write netcdf file
+        ds.to_netcdf(full_file_name, mode="w", format="NETCDF4", engine="netcdf4")
+

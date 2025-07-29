@@ -9,7 +9,7 @@ import xarray as xr
 from pyproj import CRS, Transformer
 from scipy.interpolate import RegularGridInterpolator
 
-from cht_meteo.dataset_to_delft3d import write_to_delft3d_ascii
+from cht_meteo.dataset_to_delft3d import write_to_delft3d_ascii, write_to_delft3d_netcdf
 from cht_meteo.dataset_to_json_wind import write_wind_to_json
 
 
@@ -743,8 +743,8 @@ class MeteoDataset:
                 parameters,
                 time_range,
             )
-        # else:
-        #     write_to_delft3d_netcdf(self, file_name, version, path, header_comments, refdate, parameters, time_range)
+        elif format == "netcdf":
+            write_to_delft3d_netcdf(self, file_name, path=path, refdate=refdate, parameters=parameters)
 
     def wind_to_json(self, file_name, time_range=None, js=True, iref=1):
         write_wind_to_json(self, file_name, time_range=time_range, iref=iref, js=js)
