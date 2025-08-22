@@ -32,7 +32,7 @@ class MeteoDatabase:
         lst = []
         for dataset_name, dataset in self.dataset.items():
             lst.append(dataset_name)
-        return lst    
+        return lst
 
     def add_dataset(self, dataset_name, source_name, **kwargs):
         # Add a dataset to the database
