@@ -9,7 +9,7 @@ import os
 
 # from pyproj import CRS
 # from metpy.units import units
-from datetime import datetime
+# from datetime import datetime
 
 import numpy as np
 
@@ -36,7 +36,7 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
         """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
 
         # # ntime = len(requested_times)
-        # toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
+        toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
 
         lon_range = self.lon_range
         lat_range = self.lat_range

@@ -11,8 +11,8 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-from siphon.catalog import TDSCatalog
-from xarray.backends import NetCDF4DataStore
+# from siphon.catalog import TDSCatalog
+# from xarray.backends import NetCDF4DataStore
 
 from .dataset import MeteoDataset
 
@@ -39,14 +39,14 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             print("Error: cycle_time not provided")
             return
 
-        if "time_range" in kwargs:
-            time_range = kwargs["time_range"]
-        else:
-            # Get all data from this cycle
-            time_range = [
-                cycle_time,
-                cycle_time + datetime.timedelta(hours=self.source_forecast_duration),
-            ]
+        # if "time_range" in kwargs:
+        #     time_range = kwargs["time_range"]
+        # else:
+        #     # Get all data from this cycle
+        #     time_range = [
+        #         cycle_time,
+        #         cycle_time + datetime.timedelta(hours=self.source_forecast_duration),
+        #     ]
 
         lon0 = self.lon_range[0]
         lon1 = self.lon_range[1]
