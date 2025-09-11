@@ -37,6 +37,7 @@ class MeteoDataset:
         self.tau = 0  # Time interval in hours between cycle and data
         self.last_analysis_time = None  # Time of last analysis in the dataset
         self.resolution = 9999
+        self.lazy = False
 
         # Set some source information
         self.source_name = ""  # Name of the source
@@ -361,7 +362,7 @@ class MeteoDataset:
             # Create datasets with injected time coordinate
             datasets = [
                 add_time_coord(
-                    xr.open_dataset(f, chunks={"lat": 256, "lon": 256}), t, moving
+                    xr.open_dataset(f, chunks={"lat": 512, "lon": 512}), t, moving
                 )
                 for f, t in zip(file_list, time_list)
             ]
@@ -399,11 +400,8 @@ class MeteoDataset:
                 if np.nanmean(lat[0]) > np.nanmean(lat[-1]):
                     ds = ds.isel(lat=slice(None, None, -1))
 
-            if "lazy" in kwargs:
-                # if False, still load the dataset
-                if not kwargs["lazy"]:
-                    ds = ds.load()
-            else:
+            # Only load the dataset if lazy is False (in-memory is typcailly faster)
+            if not self.lazy:
                 ds = ds.load()
 
             if subsets:
@@ -532,8 +530,8 @@ class MeteoDataset:
             and dy is not None
         ):
             # Create new x and y arrays
-            x = np.arange(x_range[0], x_range[1], dx)
-            y = np.arange(y_range[0], y_range[1], dy)
+            x = np.arange(x_range[0] - dx, x_range[1] + dx, dx)
+            y = np.arange(y_range[0] - dy, y_range[1] + dy, dy)
 
         # Option 4
         elif x is not None and y is not None:
@@ -564,20 +562,32 @@ class MeteoDataset:
             if len(self.subset) > 0:
                 # Clip all datasets in the subsets
                 for isub in range(len(self.subset)):
+                    lon_slice = get_buffered_slice(
+                        self.subset[isub].ds.lon.values, xg_t.min(), xg_t.max()
+                    )
+                    lat_slice = get_buffered_slice(
+                        self.subset[isub].ds.lat.values, yg_t.min(), yg_t.max()
+                    )
                     self_clipped.subset[isub].ds = (
                         self_clipped.subset[isub]
                         .ds.sel(
-                            lon=slice(xg_t.min(), xg_t.max()),
-                            lat=slice(yg_t.min(), yg_t.max()),
+                            lon=lon_slice,
+                            lat=lat_slice,
                             time=slice(t[0], t[-1]),
                         )
                         .load()
                     )
             else:
                 # Clip the main dataset
+                lon_slice = get_buffered_slice(
+                    self_clipped.ds.lon.values, xg_t.min(), xg_t.max()
+                )
+                lat_slice = get_buffered_slice(
+                    self_clipped.ds.lat.values, yg_t.min(), yg_t.max()
+                )
                 self_clipped.ds = self_clipped.ds.sel(
-                    lon=slice(xg_t.min(), xg_t.max()),
-                    lat=slice(yg_t.min(), yg_t.max()),
+                    lon=lon_slice,
+                    lat=lat_slice,
                     time=slice(t[0], t[-1]),
                 ).load()
             end_time = time.time()
@@ -591,36 +601,22 @@ class MeteoDataset:
         else:
             dataset = copy.deepcopy(self)
             start_time = time.time()
+            lon_slice = get_buffered_slice(dataset.ds.lon.values, x[0], x[-1])
+            lat_slice = get_buffered_slice(dataset.ds.lat.values, y[0], y[-1])
             dataset.ds = dataset.ds.sel(
-                lon=slice(x[0], x[-1]), lat=slice(y[0], y[-1]), time=slice(t[0], t[-1])
+                lon=lon_slice, lat=lat_slice, time=slice(t[0], t[-1])
             )
             end_time = time.time()
             print(f"Execution time lazy clipping: {end_time - start_time:.4f} seconds")
             # Interpolate to new grid when dx and dy were initially provided
             if dx is not None and dy is not None:
                 start_time = time.time()
-                dataset.ds = dataset.ds.interp(lat=y, lon=x, method="linear")
+                dataset.ds = dataset.ds.interp(lat=y, method="linear")
+                dataset.ds = dataset.ds.interp(lon=x, method="linear")
                 end_time = time.time()
                 print(
                     f"Execution lazy interpolation: {end_time - start_time:.4f} seconds"
                 )
-
-            start_time = time.time()
-            fill_values = {
-                "wind_u": 0.0,
-                "wind_v": 0.0,
-                "precipitation": 0.0,
-                "barometric_pressure": 101300.0,
-            }
-
-            # Loop over the dictionary and apply fill values where needed
-            for var, fill_value in fill_values.items():
-                if var in dataset.ds:
-                    dataset.ds[var] = dataset.ds[var].where(
-                        ~np.isnan(dataset.ds[var]), other=fill_value
-                    )
-            end_time = time.time()
-            print(f"Execution filling nodata: {end_time - start_time:.4f} seconds")
 
             # load the dataset for faster writing
             start_time = time.time()
@@ -629,6 +625,24 @@ class MeteoDataset:
             print(
                 f"Execution time loading dataset: {end_time - start_time:.4f} seconds"
             )
+
+        # TODO add check for nodata values and fill them?
+        # start_time = time.time()
+        # fill_values = {
+        #     "wind_u": 0.0,
+        #     "wind_v": 0.0,
+        #     "precipitation": 0.0,
+        #     "barometric_pressure": 101300.0,
+        # }
+
+        # # Loop over the dictionary and apply fill values where needed
+        # for var, fill_value in fill_values.items():
+        #     if var in dataset.ds:
+        #         dataset.ds[var] = dataset.ds[var].where(
+        #             ~np.isnan(dataset.ds[var]), other=fill_value
+        #         )
+        # end_time = time.time()
+        # print(f"Execution filling nodata: {end_time - start_time:.4f} seconds")
 
         return dataset
 
@@ -874,3 +888,13 @@ def add_time_coord(ds, date, moving):
         # Move from coordinates to variables
         ds = ds.reset_coords(["lat", "lon"])
     return ds
+
+
+def get_buffered_slice(coord_array, min_val, max_val, buffer=2):
+    """Return slice with buffer of N cells around given value range."""
+    idx_min = max(np.searchsorted(coord_array, min_val) - buffer, 0)
+    idx_max = min(
+        np.searchsorted(coord_array, max_val, side="right") + buffer,
+        len(coord_array) - 1,
+    )
+    return slice(coord_array[idx_min], coord_array[idx_max])
