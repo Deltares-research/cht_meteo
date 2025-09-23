@@ -364,6 +364,8 @@ class MeteoDataset:
                 lon = ds0["lon"].to_numpy()[:]
                 if lon[0] > 180.0:
                     lon = lon - 360.0
+                elif lon[0] < -180.0:
+                    lon = lon + 360.0    
                 lat = ds0["lat"].to_numpy()[:]
 
             # Create new dataset

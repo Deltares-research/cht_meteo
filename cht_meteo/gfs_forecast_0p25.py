@@ -106,7 +106,8 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     lat = np.array(ds0["latitude"])
                     lat = np.flip(lat)
 
-                    ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                    # We keep lon from 0 to 360!
+                    # ds["lon"] = np.array(ds0["longitude"]) - 360.0
                     ds["lat"] = lat
                     ds["time"] = ds0["time"]
 
@@ -153,7 +154,8 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
                     # Check if lon, lat and time are already in the dataset
                     if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                        ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                        # We keep lon from 0 to 360!
+                        #ds["lon"] = np.array(ds0["longitude"]) - 360.0
                         lat = np.array(ds0["latitude"])
                         lat = np.flip(lat)
                         ds["lat"] = lat
