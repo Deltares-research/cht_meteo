@@ -8,6 +8,7 @@ from .dataset import MeteoDataset
 from .gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
 from .gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
 from .gfs_forecast_0p25_ncar_archive import MeteoDatasetGFSForecast0p25NCARArchive
+from .matroos_forecast import MeteoDatasetMatroos
 
 
 class MeteoDatabase:
@@ -32,7 +33,7 @@ class MeteoDatabase:
         lst = []
         for dataset_name, dataset in self.dataset.items():
             lst.append(dataset_name)
-        return lst    
+        return lst
 
     def add_dataset(self, dataset_name, source_name, **kwargs):
         # Add a dataset to the database
@@ -55,13 +56,15 @@ class MeteoDatabase:
                 md = MeteoDatasetGFSAnalysis0p50(
                     name=dataset_name, path=dataset_path, **kwargs
                 )
+            elif source_name == "matroos":
+                md = MeteoDatasetMatroos(name=dataset_name, path=dataset_path, **kwargs)
             else:
                 md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
                 print(
                     f"Error while reading meteo database : source {source_name} not recognized"
                 )
 
-                # #TODO do we want to add download functionality in a flexible way to the generic MeteoDatasets? E.g. using a file with download function only. 
+                # #TODO do we want to add download functionality in a flexible way to the generic MeteoDatasets? E.g. using a file with download function only.
                 # if "download_forecast_cycle" in kwargs:
                 #     md.download_forecast_cycle = download
 
@@ -109,5 +112,5 @@ class MeteoDatabase:
                 lon_range=lon_range,
                 lat_range=lat_range,
                 tau=tau,
-                **meteo_dataset
+                **meteo_dataset,
             )

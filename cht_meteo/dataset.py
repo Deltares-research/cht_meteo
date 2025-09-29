@@ -126,6 +126,11 @@ class MeteoDataset:
             )
             return
 
+        last_cycle_time = None
+        if "last_cycle" in kwargs:
+            if kwargs["last_cycle"] is not None:
+                last_cycle_time = kwargs["last_cycle"]
+
         # Round first time in range down to hour
         h0 = time_range[0].hour
         # Round down to cycle interval
@@ -174,6 +179,14 @@ class MeteoDataset:
             .tolist()
         )
 
+        # If last_cycle has been provided, do not get data from later cycles
+        if last_cycle_time is not None:
+            print(
+                "Downloading up to last_cycle : "
+                + last_cycle_time.strftime("%Y%m%d_%Hz")
+            )
+            cycle_times = [t for t in cycle_times if t <= last_cycle_time]
+
         # Loop through all cycle times
         for it, t in enumerate(cycle_times):
             print(
@@ -181,7 +194,15 @@ class MeteoDataset:
                 + t.strftime("%Y%m%d_%Hz")
             )
             try:
-                self.download_forecast_cycle(cycle_time=t, **kwargs)
+                if it < len(cycle_times) - 1:
+                    # Earlier cycle, so only get data up to next cycle
+                    self.download_forecast_cycle(
+                        cycle_time=t,
+                        time_range=[cycle_times[it], cycle_times[it + 1]],
+                        **kwargs,
+                    )
+                else:
+                    self.download_forecast_cycle(cycle_time=t, **kwargs)
             except Exception as e:
                 print(
                     f"Error downloading data from dataset {self.name} - cycle : {t.strftime('%Y%m%d_%Hz')}"
@@ -236,6 +257,8 @@ class MeteoDataset:
             if kwargs["last_cycle"] is not None:
                 # last_cycle_time = datetime.datetime.strptime(kwargs["last_cycle"], "%Y%m%d_%H")
                 last_cycle_time = kwargs["last_cycle"]
+                # FIXME make timezone naive
+                last_cycle_time = last_cycle_time.replace(tzinfo=None)
 
         # Subsets are only used when there are subsets with different resolutions (e.g. as in COAMPS-TC)
         if len(self.subset) > 0:
