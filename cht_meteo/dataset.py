@@ -1,7 +1,6 @@
 import copy
 import datetime
 import os
-import time
 from typing import Optional
 
 import cht_utils.fileops as fo
@@ -573,11 +572,9 @@ class MeteoDataset:
 
         # Create new dataset
         if len(self.subset) > 0 or crs != self.crs:
-            start_time = time.time()
             dataset = MeteoDataset(name=name, x=x, y=y, time=t, crs=crs)
             # make deepcopy of self to avoid modifying the original dataset and clip to new extent
             self_clipped = copy.deepcopy(self)
-            start_time = time.time()
             # Transformer from new dataset to original dataset CRS
             transformer = Transformer.from_crs(dataset.crs, self.crs, always_xy=True)
             xg, yg = np.meshgrid(x, y)
@@ -613,59 +610,36 @@ class MeteoDataset:
                     lat=lat_slice,
                     time=slice(t[0], t[-1]),
                 ).load()
-            end_time = time.time()
-            print(
-                f"Clipping and loading subsets took: {end_time - start_time:.4f} seconds"
-            )
-            start_time = time.time()
             dataset.interpolate_dataset(self_clipped)
-            end_time = time.time()
-            print(f"Interpolate subsets took: {end_time - start_time:.4f} seconds")
         else:
             dataset = copy.deepcopy(self)
-            start_time = time.time()
             lon_slice = get_buffered_slice(dataset.ds.lon.values, x[0], x[-1])
             lat_slice = get_buffered_slice(dataset.ds.lat.values, y[0], y[-1])
             dataset.ds = dataset.ds.sel(
                 lon=lon_slice, lat=lat_slice, time=slice(t[0], t[-1])
             )
-            end_time = time.time()
-            print(f"Execution time lazy clipping: {end_time - start_time:.4f} seconds")
             # Interpolate to new grid when dx and dy were initially provided
             if dx is not None and dy is not None:
-                start_time = time.time()
                 dataset.ds = dataset.ds.interp(lat=y, method="linear")
                 dataset.ds = dataset.ds.interp(lon=x, method="linear")
-                end_time = time.time()
-                print(
-                    f"Execution lazy interpolation: {end_time - start_time:.4f} seconds"
-                )
 
             # load the dataset for faster writing
-            start_time = time.time()
             dataset.ds.load()
-            end_time = time.time()
-            print(
-                f"Execution time loading dataset: {end_time - start_time:.4f} seconds"
-            )
 
-        # TODO add check for nodata values and fill them?
-        # start_time = time.time()
-        # fill_values = {
-        #     "wind_u": 0.0,
-        #     "wind_v": 0.0,
-        #     "precipitation": 0.0,
-        #     "barometric_pressure": 101300.0,
-        # }
+            # Fill nans
+            fill_values = {
+                "wind_u": 0.0,
+                "wind_v": 0.0,
+                "precipitation": 0.0,
+                "barometric_pressure": 101300.0,
+            }
 
-        # # Loop over the dictionary and apply fill values where needed
-        # for var, fill_value in fill_values.items():
-        #     if var in dataset.ds:
-        #         dataset.ds[var] = dataset.ds[var].where(
-        #             ~np.isnan(dataset.ds[var]), other=fill_value
-        #         )
-        # end_time = time.time()
-        # print(f"Execution filling nodata: {end_time - start_time:.4f} seconds")
+            # Loop over the dictionary and apply fill values where needed
+            for var, fill_value in fill_values.items():
+                if var in dataset.ds:
+                    dataset.ds[var] = dataset.ds[var].where(
+                        ~np.isnan(dataset.ds[var]), other=fill_value
+                    )
 
         return dataset
 
