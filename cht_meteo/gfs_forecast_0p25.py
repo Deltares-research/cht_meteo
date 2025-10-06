@@ -103,13 +103,30 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 )
                 ncss_data = ncss.get_data(query)
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
+
                     lat = np.array(ds0["latitude"])
                     lat = np.flip(lat)
 
                     # We keep lon from 0 to 360!
                     # ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                    ds["lon"] = np.array(ds0["longitude"])
                     ds["lat"] = lat
-                    ds["time"] = ds0["time"]
+
+                    if "time" in ds0:
+                        ds["time"] = ds0["time"]
+                    elif "time1" in ds0:
+                        # Rename time1 to time in ds0
+                        ds0 = ds0.rename({"time1": "time"})
+                        ds0 = ds0.rename({"reftime1": "reftime"})
+                        ds["time"] = ds0["time"]
+                    elif "time2" in ds0: # Not sure if this is ever used ...
+                        # Rename time2 to time in ds0
+                        ds0 = ds0.rename({"time2": "time"})
+                        ds0 = ds0.rename({"reftime2": "reftime"})
+                        ds["time"] = ds0["time"]
+                    else:
+                        print("No time variable found in dataset")
+                        return     
 
                     ds["wind_u"] = xr.DataArray(
                         np.flip(
@@ -117,18 +134,19 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                                 ds0[
                                     "u-component_of_wind_height_above_ground"
                                 ].to_numpy()
-                            )
-                        ),
+                            ),
+                        axis=1,),
                         dims=("time", "lat", "lon"),
                     )
+                    # Plot first time of wind_u
                     ds["wind_v"] = xr.DataArray(
                         np.flip(
                             np.squeeze(
                                 ds0[
                                     "v-component_of_wind_height_above_ground"
                                 ].to_numpy()
-                            )
-                        ),
+                            ),
+                        axis=1),
                         dims=("time", "lat", "lon"),
                     )
 
@@ -146,8 +164,8 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 query.lonlat_box(
                     north=self.lat_range[1],
                     south=self.lat_range[0],
-                    east=self.lon_range[1],
                     west=self.lon_range[0],
+                    east=self.lon_range[1],
                 ).time_range(time_range[0], time_range[1])
                 query.variables(var_name)
                 ncss_data = ncss.get_data(query)
@@ -156,12 +174,28 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     if "lon" not in ds or "lat" not in ds or "time" not in ds:
                         # We keep lon from 0 to 360!
                         #ds["lon"] = np.array(ds0["longitude"]) - 360.0
+                        ds["lon"] = np.array(ds0["longitude"])
                         lat = np.array(ds0["latitude"])
                         lat = np.flip(lat)
                         ds["lat"] = lat
-                        ds["time"] = ds0["time"]
 
-                    v = np.flip(np.squeeze(ds0[var_name].to_numpy()))
+                        if "time" in ds0:
+                            ds["time"] = ds0["time"]
+                        elif "time1" in ds0:
+                            # Rename time1 to time in ds0
+                            ds0 = ds0.rename({"time1": "time"})
+                            ds0 = ds0.rename({"reftime1": "reftime"})
+                            ds["time"] = ds0["time"]
+                        elif "time2" in ds0: # Not sure if this is ever used ...
+                            # Rename time2 to time in ds0
+                            ds0 = ds0.rename({"time2": "time"})
+                            ds0 = ds0.rename({"reftime2": "reftime"})
+                            ds["time"] = ds0["time"]
+                        else:
+                            print("No time variable found in dataset")
+                            return     
+
+                    v = np.flip(np.squeeze(ds0[var_name].to_numpy()), axis=1)
 
                     if param == "precipitation":
                         v = v * fac

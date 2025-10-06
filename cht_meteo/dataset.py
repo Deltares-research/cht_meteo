@@ -90,14 +90,27 @@ class MeteoDataset:
         else:
             self.ds["x"] = xr.DataArray(x, dims=("x"))
             self.ds["y"] = xr.DataArray(y, dims=("y"))
-        empty_data = np.empty((len(time), len(y), len(x))) + np.nan
+        # empty_data = np.empty((len(time), len(y), len(x))) + np.nan
         for var_name in self.var_names:
             if self.crs.is_geographic:
                 self.ds[var_name] = xr.DataArray(
-                    empty_data, dims=("time", "lat", "lon")
+                    np.empty((len(time), len(y), len(x))) + np.nan, dims=("time", "lat", "lon")
                 )
             else:
-                self.ds[var_name] = xr.DataArray(empty_data, dims=("time", "y", "x"))
+                self.ds[var_name] = xr.DataArray(np.empty((len(time), len(y), len(x))) + np.nan, dims=("time", "y", "x"))
+
+    def fill(self, u=0.0, v=0.0, p=101300.0, pr=0.0):
+        
+        """Fill the dataset with constant values."""
+
+        if "wind_u" in self.ds:
+            self.ds["wind_u"][:, :, :] = u
+        if "wind_v" in self.ds:
+            self.ds["wind_v"][:, :, :] = v
+        if "barometric_pressure" in self.ds:
+            self.ds["barometric_pressure"][:, :, :] = p
+        if "precipitation" in self.ds:
+            self.ds["precipitation"][:, :, :] = pr
 
     def download(self, time_range, **kwargs):
         # Make path
