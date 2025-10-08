@@ -36,7 +36,7 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
         """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
 
         # # ntime = len(requested_times)
-        # toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
+        toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
 
         lon_range = self.lon_range
         lat_range = self.lat_range
@@ -77,7 +77,9 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                 elif h == 21:
                     cstr = "1800_003"
 
-                base_url = "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files/"
+                base_url = (
+                    "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files/"
+                )
                 url = base_url + month_string + "/" + date_string + "/"
                 name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
 
