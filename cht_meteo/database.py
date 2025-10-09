@@ -58,6 +58,20 @@ class MeteoDatabase:
                 )
             elif source_name == "matroos":
                 md = MeteoDatasetMatroos(name=dataset_name, path=dataset_path, **kwargs)
+            elif source_name == "custom":
+                # Import class from specific python file location
+                if "filepath" not in kwargs:
+                    print("Error while reading meteo database : for source 'custom' the filepath to the python file must be provided")
+                    return
+                filepath = kwargs.pop("filepath")
+                if not os.path.exists(filepath):
+                    print(f"Error while reading meteo database : file {filepath} does not exist")
+                    return
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("custom_module", filepath)
+                custom_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(custom_module)
+                md = custom_module.MeteoDatasetCustom(name=dataset_name, path=dataset_path, **kwargs)
             else:
                 md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
                 print(
