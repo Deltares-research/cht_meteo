@@ -371,7 +371,10 @@ class MeteoDataset:
                     os.path.join(self.path, "*" + subsetstr + "*.nc")
                 )
                 for file in files_in_cycle:
-                    t_file = datetime.datetime.strptime(file[-15:-3], "%Y%m%d%H%M")
+                    try:    
+                        t_file = datetime.datetime.strptime(file[-15:-3], "%Y%m%d%H%M")
+                    except:
+                        t_file = datetime.datetime.strptime(file[-16:-3], "%Y%m%d_%H%M")
                     if t_file >= time_range[0] and t_file <= time_range[1]:
                         file_list.append(os.path.join(self.path, file))
                         time_list.append(t_file)
@@ -407,11 +410,16 @@ class MeteoDataset:
 
             # Normalize longitude to [-180, 180] if needed
             lon = ds["lon"]
-            if np.any(lon > 180.0):
-                if moving:
-                    ds["lon"].values -= 360
-                else:
-                    ds = ds.assign_coords(lon=ds["lon"].values - 360.0)
+            # if np.any(lon > 180.0):
+            #     if moving:
+            #         ds["lon"].values -= 360
+            #     else:
+            #         ds = ds.assign_coords(lon=ds["lon"].values - 360.0)
+            # if np.any(lon < -180.0):
+            #     if moving:
+            #         ds["lon"].values += 360
+            #     else:
+            #         ds = ds.assign_coords(lon=ds["lon"].values + 360.0)
 
             # Make sure files are oriented S-N
             lat = ds["lat"]
