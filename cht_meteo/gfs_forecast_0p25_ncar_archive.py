@@ -81,7 +81,6 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
         # Loop through forecast hours
 
         for forecast_hour in forecast_hours:
-
             # print(f"Downloading forecast hour {forecast_hour} of cycle {cycle_name}")
 
             # Create the URL for the forecast time
@@ -97,7 +96,6 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             # Loop through requested parameters
             for param in param_list:
                 if param == "wind":
-
                     dau = ds0["u-component_of_wind_height_above_ground"]
                     # Clip data to lon, lat range
                     dau = dau.sel(
