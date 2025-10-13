@@ -27,7 +27,14 @@ class MeteoDatabase:
 
     def list_sources(self):
         # Returns a list the available sources
-        return ["gfs_forecast_0p25", "gfs_analysis_0p50", "coamps_tc_forecast", "ecmwf_forecast_0p25", "matroos", "custom"]
+        return [
+            "gfs_forecast_0p25",
+            "gfs_analysis_0p50",
+            "coamps_tc_forecast",
+            "ecmwf_forecast_0p25",
+            "matroos",
+            "custom",
+        ]
 
     def list_dataset_names(self):
         # Returns a list the available sources
@@ -66,17 +73,24 @@ class MeteoDatabase:
             elif source_name == "custom":
                 # Import class from specific python file location
                 if "filepath" not in kwargs:
-                    print("Error while reading meteo database : for source 'custom' the filepath to the python file must be provided")
+                    print(
+                        "Error while reading meteo database : for source 'custom' the filepath to the python file must be provided"
+                    )
                     return
                 filepath = kwargs.pop("filepath")
                 if not os.path.exists(filepath):
-                    print(f"Error while reading meteo database : file {filepath} does not exist")
+                    print(
+                        f"Error while reading meteo database : file {filepath} does not exist"
+                    )
                     return
                 import importlib.util
+
                 spec = importlib.util.spec_from_file_location("custom_module", filepath)
                 custom_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(custom_module)
-                md = custom_module.MeteoDatasetCustom(name=dataset_name, path=dataset_path, **kwargs)
+                md = custom_module.MeteoDatasetCustom(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
             else:
                 md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
                 print(

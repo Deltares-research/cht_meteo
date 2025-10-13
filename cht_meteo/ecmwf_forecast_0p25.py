@@ -1,8 +1,8 @@
-import datetime
 from ecmwf.opendata import Client
 import xarray as xr
 import pandas as pd
 import shutil
+
 # import cfgrib
 # import numpy as np
 import os
@@ -51,19 +51,17 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
         # Check if path already exists and holds all the required files
         if os.path.exists(forecast_path):
-            existing_files = [
-                f for f in os.listdir(forecast_path) if f.endswith(".nc")
-            ]
+            existing_files = [f for f in os.listdir(forecast_path) if f.endswith(".nc")]
             expected_file_count = (72 // self.source_time_interval) + 1  # +1 for 0h
             if len(existing_files) >= expected_file_count:
-                print(f"Forecast cycle {cycle_name} already exists with {len(existing_files)} files. Skipping download.")
+                print(
+                    f"Forecast cycle {cycle_name} already exists with {len(existing_files)} files. Skipping download."
+                )
                 return
             else:
-                print(f"Forecast cycle {cycle_name} exists but incomplete ({len(existing_files)}/{expected_file_count} files). Re-downloading.")
-
-
-
-
+                print(
+                    f"Forecast cycle {cycle_name} exists but incomplete ({len(existing_files)}/{expected_file_count} files). Re-downloading."
+                )
 
         # Make folder for the forecast
         os.makedirs(forecast_path, exist_ok=True)
@@ -82,7 +80,7 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         output_dir = os.path.join(forecast_path, "_TMP_ecmwf_data")
 
         lon_lim = self.lon_range  # degrees east
-        lat_lim = self.lat_range   # degrees north
+        lat_lim = self.lat_range  # degrees north
 
         # For global data: set both to None
         # lon_lim = None; lat_lim = None
@@ -95,9 +93,9 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
         client = Client(source="ecmwf", model="ifs")
 
-        date=cycle_time.strftime("%Y-%m-%d") # "2025-10-07"
-        time=cycle_time.strftime("%H:%M")    # 18:00
-    
+        date = cycle_time.strftime("%Y-%m-%d")  # "2025-10-07"
+        time = cycle_time.strftime("%H:%M")  # 18:00
+
         print(f"Downloading ECMWF open forecast: {date} {time} UTC")
 
         for var in variables:
@@ -137,7 +135,7 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
                     if lon_lim is not None and lat_lim is not None:
                         ds = ds.sel(
                             latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
-                            longitude=slice(lon_lim[0], lon_lim[1])
+                            longitude=slice(lon_lim[0], lon_lim[1]),
                         )
 
                     var_datasets.append(ds)
@@ -167,7 +165,9 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
             tp_rate = tp_rate.assign_coords(step=tp.step[:-1])
             tp_rate.name = "rain_rate"
             tp_rate.attrs["units"] = "mm/h"
-            tp_rate.attrs["description"] = "3-hourly mean precipitation rate (interval start time)"
+            tp_rate.attrs["description"] = (
+                "3-hourly mean precipitation rate (interval start time)"
+            )
 
             # Merge back (drop cumulative field)
             ds_merged = ds_merged.drop_vars("tp")
@@ -186,7 +186,7 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
             "u10": "wind_u",
             "v10": "wind_v",
             "msl": "barometric_pressure",
-            "rain_rate": "precipitation"
+            "rain_rate": "precipitation",
         }
         ds_merged = ds_merged.rename(rename_dict)
 

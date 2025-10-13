@@ -35,7 +35,9 @@ class MeteoDataset:
         self.crs = CRS(4326)  # Coordinate reference system of the dataset
         self.tau = 0  # Time interval in hours between cycle and data
         self.last_analysis_time = None  # Time of last analysis in the dataset
-        self.last_forecast_cycle_time = None  # Time of last forecast cycle in the dataset
+        self.last_forecast_cycle_time = (
+            None  # Time of last forecast cycle in the dataset
+        )
 
         # Loop through kwargs to set attributes
         reserved_keys = ["x", "y", "lon", "lat", "time"]
@@ -104,13 +106,16 @@ class MeteoDataset:
         for var_name in self.var_names:
             if self.crs.is_geographic:
                 self.ds[var_name] = xr.DataArray(
-                    np.empty((len(time), len(y), len(x))) + np.nan, dims=("time", "lat", "lon")
+                    np.empty((len(time), len(y), len(x))) + np.nan,
+                    dims=("time", "lat", "lon"),
                 )
             else:
-                self.ds[var_name] = xr.DataArray(np.empty((len(time), len(y), len(x))) + np.nan, dims=("time", "y", "x"))
+                self.ds[var_name] = xr.DataArray(
+                    np.empty((len(time), len(y), len(x))) + np.nan,
+                    dims=("time", "y", "x"),
+                )
 
     def fill(self, u=0.0, v=0.0, p=101300.0, pr=0.0):
-        
         """Fill the dataset with constant values."""
 
         if "wind_u" in self.ds:
@@ -394,7 +399,7 @@ class MeteoDataset:
                     os.path.join(self.path, "*" + subsetstr + "*.nc")
                 )
                 for file in files_in_cycle:
-                    try:    
+                    try:
                         t_file = datetime.datetime.strptime(file[-15:-3], "%Y%m%d%H%M")
                     except:
                         t_file = datetime.datetime.strptime(file[-16:-3], "%Y%m%d_%H%M")
@@ -421,7 +426,7 @@ class MeteoDataset:
             #     if lon[0] > 180.0:
             #         lon = lon - 360.0
             #     elif lon[0] < -180.0:
-            #         lon = lon + 360.0    
+            #         lon = lon + 360.0
             #     lat = ds0["lat"].to_numpy()[:]
 
             ds = xr.concat(datasets, dim="time")
@@ -875,7 +880,9 @@ class MeteoDataset:
                 time_range,
             )
         elif format == "netcdf":
-            write_to_delft3d_netcdf(self, file_name, path=path, refdate=refdate, parameters=parameters)
+            write_to_delft3d_netcdf(
+                self, file_name, path=path, refdate=refdate, parameters=parameters
+            )
 
     def wind_to_json(self, file_name, time_range=None, js=True, iref=1):
         write_wind_to_json(self, file_name, time_range=time_range, iref=iref, js=js)
