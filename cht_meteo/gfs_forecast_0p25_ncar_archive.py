@@ -5,14 +5,11 @@ Created on Thu May 20 10:32:33 2021
 @author: ormondt
 """
 
-import datetime
 import os
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-# from siphon.catalog import TDSCatalog
-# from xarray.backends import NetCDF4DataStore
 
 from .dataset import MeteoDataset
 
