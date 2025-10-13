@@ -28,6 +28,8 @@ dependencies = [
     "toml",
     "tomli",
     "netCDF4",
+	"tqdm",
+	"ecmwf",
     "cht_utils"]
 
 dynamic = ["version"]
