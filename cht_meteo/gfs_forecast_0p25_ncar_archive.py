@@ -54,7 +54,7 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             lon0 = lon0 + 360.0
             lon1 = lon1 + 360.0
         lat0 = self.lat_range[0]
-        lat1 = self.lat_range[1] 
+        lat1 = self.lat_range[1]
 
         cycle_year_string = cycle_time.strftime("%Y")
         cycle_day_string = cycle_time.strftime("%Y%m%d")
@@ -85,10 +85,7 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             # print(f"Downloading forecast hour {forecast_hour} of cycle {cycle_name}")
 
             # Create the URL for the forecast time
-            url = (
-                base_url
-                + f"/gfs.0p25.{cycle_string}.f{forecast_hour:03d}.grib2"
-            )
+            url = base_url + f"/gfs.0p25.{cycle_string}.f{forecast_hour:03d}.grib2"
 
             ds0 = xr.open_dataset(url)
 
@@ -136,19 +133,19 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
 
                     # Make new time dimension in ds
                     ds["time"] = xr.DataArray(
-                        # flip the lat dimension                        
+                        # flip the lat dimension
                         np.flip(np.array(dau[tdim]), axis=0),
                         dims=("time"),
                     )
 
                     ds["wind_u"] = xr.DataArray(
-                        # flip the lat dimension                        
+                        # flip the lat dimension
                         np.flip(dau.to_numpy(), axis=1),
                         dims=("time", "lat", "lon"),
                     )
 
                     ds["wind_v"] = xr.DataArray(
-                        # flip the lat dimension                        
+                        # flip the lat dimension
                         np.flip(dav.to_numpy(), axis=1),
                         dims=("time", "lat", "lon"),
                     )
@@ -171,8 +168,8 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
                     )
 
                     ds[param] = xr.DataArray(
-                        # flip the lat dimension                        
-                        np.flip(fac*da.to_numpy(), axis=1),
+                        # flip the lat dimension
+                        np.flip(fac * da.to_numpy(), axis=1),
                         dims=("time", "lat", "lon"),
                     )
 
