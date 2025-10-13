@@ -34,6 +34,7 @@ class MeteoDataset:
         self.crs = CRS(4326)  # Coordinate reference system of the dataset
         self.tau = 0  # Time interval in hours between cycle and data
         self.last_analysis_time = None  # Time of last analysis in the dataset
+        self.last_forecast_cycle_time = None  # Time of last forecast cycle in the dataset
 
         # Loop through kwargs to set attributes
         reserved_keys = ["x", "y", "lon", "lat", "time"]
@@ -294,6 +295,9 @@ class MeteoDataset:
                     if t_cycle < time_range[0] or t_cycle > time_range[1]:
                         # We can skip this cycle
                         continue
+
+                    # Set this as the last cycle that is collected (used e.g. to display in CoSMoS webviewer)
+                    self.last_forecast_cycle_time = t_cycle
 
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(

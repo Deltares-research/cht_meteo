@@ -283,7 +283,8 @@ def write_to_delft3d_netcdf(
     for param in parameters:
         if param == "wind":
             file = {}
-            file["davars"] = ["x_wind", "y_wind"]
+            # file["davars"] = ["x_wind", "y_wind"]
+            file["davars"] = ["wind_u", "wind_v"]
             file["ncvars"] = ["eastward_wind", "northward_wind"]
             file["ext"]    = "_wind"
             file["unit"]   = "m s-1"
@@ -333,11 +334,11 @@ def write_to_delft3d_netcdf(
 
         ds["time"] = xr.DataArray(float_minutes, dims=["time"])
         ds["time"].attrs["units"] = "minutes since 1970-01-01 00:00:00.0 +0000"
-        ds["x"] = xr.DataArray(x, dims=["ncols"])
-        ds["y"] = xr.DataArray(y, dims=["nrows"])
+        ds["x"] = xr.DataArray(x, dims=["x"])
+        ds["y"] = xr.DataArray(y, dims=["y"])
         for davar, ncvar in zip(file["davars"], file["ncvars"]):
             if davar in dataset.ds:
-                ds[ncvar] = xr.DataArray(dataset.ds[davar].to_numpy()[:], dims=["time", "nrows", "ncols"])
+                ds[ncvar] = xr.DataArray(dataset.ds[davar].to_numpy()[:], dims=["time", "y", "x"])
                 ds[ncvar].attrs["units"] = file["unit"]
                 ds[ncvar].attrs["long_name"] = davar.replace("_", " ").capitalize()
             else:
