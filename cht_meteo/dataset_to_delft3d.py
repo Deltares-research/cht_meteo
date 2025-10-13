@@ -293,11 +293,11 @@ def write_to_delft3d_netcdf(
             files.append(file)
         elif param == "barometric_pressure":
             file = {}
-            file["data"] = dataset.ds["barometric_pressure"].to_numpy()[:]
-            file["ext"] = "amp"
-            file["quantity"] = "air_pressure"
+            # file["data"] = dataset.ds["barometric_pressure"].to_numpy()[:]
+            file["davars"] = ["barometric_pressure"]
+            file["ncvars"] = ["barometric_pressure"]
+            file["ext"] = "_barometric_pressure"
             file["unit"] = "Pa"
-            file["fmt"] = "%7.0f"
             files.append(file)
         elif param == "precipitation":
             file = {}

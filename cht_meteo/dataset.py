@@ -44,7 +44,7 @@ class MeteoDataset:
         for key, value in kwargs.items():
             if key not in reserved_keys:
                 setattr(self, key, value)
-        self.resolution = 9999
+        self.resolution = 9999.0
         self.lazy = False
 
         # Set some source information
