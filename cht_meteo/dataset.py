@@ -401,7 +401,7 @@ class MeteoDataset:
                 for file in files_in_cycle:
                     try:
                         t_file = datetime.datetime.strptime(file[-15:-3], "%Y%m%d%H%M")
-                    except:
+                    except Exception:
                         t_file = datetime.datetime.strptime(file[-16:-3], "%Y%m%d_%H%M")
                     if t_file >= time_range[0] and t_file <= time_range[1]:
                         file_list.append(os.path.join(self.path, file))
@@ -446,7 +446,7 @@ class MeteoDataset:
                     ds[var] = ds[var].where(~np.isnan(ds[var]), other=fill_value)
 
             # Normalize longitude to [-180, 180] if needed
-            lon = ds["lon"]
+            # lon = ds["lon"]
             # if np.any(lon > 180.0):
             #     if moving:
             #         ds["lon"].values -= 360
