@@ -2,9 +2,6 @@ from ecmwf.opendata import Client
 import xarray as xr
 import pandas as pd
 import shutil
-
-# import cfgrib
-# import numpy as np
 import os
 from tqdm import tqdm
 
