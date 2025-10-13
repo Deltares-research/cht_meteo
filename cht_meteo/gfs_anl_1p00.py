@@ -77,7 +77,9 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                 elif h == 21:
                     cstr = "1800_003"
 
-                base_url = "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files/"
+                base_url = (
+                    "https://www.ncei.noaa.gov/thredds/dodsC/model-gfs-g4-anl-files/"
+                )
                 url = base_url + month_string + "/" + date_string + "/"
                 name = "gfs_4_" + date_string + "_" + cstr + ".grb2"
 

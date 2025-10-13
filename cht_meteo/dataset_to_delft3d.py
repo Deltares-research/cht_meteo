@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 
+
 def write_to_delft3d_ascii(
     dataset,
     file_name,
@@ -263,6 +264,7 @@ def write_to_delft3d_ascii(
 
         fid.close()
 
+
 def write_to_delft3d_netcdf(
     dataset,
     file_name,
@@ -286,8 +288,8 @@ def write_to_delft3d_netcdf(
             # file["davars"] = ["x_wind", "y_wind"]
             file["davars"] = ["wind_u", "wind_v"]
             file["ncvars"] = ["eastward_wind", "northward_wind"]
-            file["ext"]    = "_wind"
-            file["unit"]   = "m s-1"
+            file["ext"] = "_wind"
+            file["unit"] = "m s-1"
             files.append(file)
         elif param == "barometric_pressure":
             file = {}
@@ -301,17 +303,18 @@ def write_to_delft3d_netcdf(
             file = {}
             file["davars"] = ["precipitation"]
             file["ncvars"] = ["precipitation"]
-            file["ext"]    = "_precipitation"
-            file["unit"]   = "mm h-1"
+            file["ext"] = "_precipitation"
+            file["unit"] = "mm h-1"
             files.append(file)
 
     # Convert times to float minutes since 1970-01-01
     # subtract np.datetime64 from datetime.datetime object
     time = pd.to_datetime(time)
-    float_minutes = ((time - np.datetime64("1970-01-01T00:00:00")) / pd.Timedelta(seconds=60)).to_numpy()
+    float_minutes = (
+        (time - np.datetime64("1970-01-01T00:00:00")) / pd.Timedelta(seconds=60)
+    ).to_numpy()
 
     for file in files:
-
         if "lon" in dataset.ds:
             # ncols = len(dataset.ds.lon)
             x = dataset.ds.lon.to_numpy()[:]
@@ -338,7 +341,9 @@ def write_to_delft3d_netcdf(
         ds["y"] = xr.DataArray(y, dims=["y"])
         for davar, ncvar in zip(file["davars"], file["ncvars"]):
             if davar in dataset.ds:
-                ds[ncvar] = xr.DataArray(dataset.ds[davar].to_numpy()[:], dims=["time", "y", "x"])
+                ds[ncvar] = xr.DataArray(
+                    dataset.ds[davar].to_numpy()[:], dims=["time", "y", "x"]
+                )
                 ds[ncvar].attrs["units"] = file["unit"]
                 ds[ncvar].attrs["long_name"] = davar.replace("_", " ").capitalize()
             else:
@@ -349,4 +354,3 @@ def write_to_delft3d_netcdf(
 
         # Write netcdf file
         ds.to_netcdf(full_file_name, mode="w", format="NETCDF4", engine="netcdf4")
-
