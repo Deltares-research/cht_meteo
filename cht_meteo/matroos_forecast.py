@@ -86,10 +86,10 @@ class MeteoDatasetMatroos(MeteoDataset):
 
         # now get the actual cycle
         matroos_cycle_string = cycle_time.strftime("%Y%m%d%H%M")
-        acces_url = catalog.datasets[matroos_cycle_string + ".nc"].access_urls[
+        access_url = catalog.datasets[matroos_cycle_string + ".nc"].access_urls[
             "OPENDAP"
         ]
-        ds = xr.open_dataset(acces_url)
+        ds = xr.open_dataset(access_url)
 
         # subset variables
         variables = [
