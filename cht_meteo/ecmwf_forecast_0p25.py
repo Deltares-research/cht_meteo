@@ -1,5 +1,6 @@
-import shutil
 import os
+import shutil
+
 import xarray as xr
 import pandas as pd
 from ecmwf.opendata import Client
