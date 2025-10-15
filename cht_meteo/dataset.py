@@ -469,6 +469,11 @@ class MeteoDataset:
         # Check the options (call everything x and y for now)
         if lon_range is not None:
             x_range = lon_range
+            # First make sure lon_range is in 0-360
+            x_range =  [(lon + 360) if lon < 0 else lon for lon in x_range]
+            # Then make sure x_range[1] is larger than x_range[0] (resulting lon values can exceed 360)
+            if  x_range[1] < x_range[0]:
+                x_range[1] += 360.0
         if lat_range is not None:
             y_range = lat_range
         if lon is not None:
@@ -648,6 +653,12 @@ class MeteoDataset:
                     dataset.ds[var] = dataset.ds[var].where(
                         ~np.isnan(dataset.ds[var]), other=fill_value
                     )
+
+        # Replace lon coordinates of >360 to lon-360
+        lon = dataset.ds["lon"]
+        if np.any(lon > 360.0):
+            lon.values[lon > 360.0] -= 360.0
+            dataset.ds["lon"] = lon
 
         return dataset
 
@@ -864,6 +875,16 @@ class MeteoDataset:
         else:
             x = ds["x"].to_numpy()
             y = ds["y"].to_numpy()
+
+        # Convert to [0, 360] convention
+        if self.crs.is_geographic:
+            x = [(lon + 360) if lon < 0 else lon for lon in x]
+
+        # Make sure x is increasing by adding 360 if crosses the dateline
+        if x[-1] < x[0]: # e.g [350 0 10] becomes [350 360 370]
+            mask = x < x[0]
+            x[mask] += 360.0
+
         return x, y
 
     def get_times(self, *args):
