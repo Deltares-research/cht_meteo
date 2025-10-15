@@ -83,51 +83,61 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
 
         param_list = ["wind", "barometric_pressure", "precipitation"]
 
-        ds = xr.Dataset()
+        def query_ncss(var_names, vertical_level=None):
+            query = ncss.query()
+            query.lonlat_box(
+                north=self.lat_range[1],
+                south=self.lat_range[0],
+                east=360,  # full longitude
+                west=0
+            ).time_range(time_range[0], time_range[1])
+            if vertical_level is not None:
+                query.vertical_level(vertical_level)
+            query.variables(*var_names)
+            return ncss.get_data(query)
+        
+        ds_full  = xr.Dataset()
 
         # Loop through requested parameters
         for param in param_list:
             if param == "wind":
                 # dataset.quantity = param
-
-                query = ncss.query()
-                query.lonlat_box(
-                    north=self.lat_range[1],
-                    south=self.lat_range[0],
-                    east=self.lon_range[1],
-                    west=self.lon_range[0],
-                ).time_range(time_range[0], time_range[1]).vertical_level(10.0)
-                query.variables(
-                    "u-component_of_wind_height_above_ground",
-                    "v-component_of_wind_height_above_ground",
+                ncss_data = query_ncss(
+                    ["u-component_of_wind_height_above_ground",
+                    "v-component_of_wind_height_above_ground"],
+                    vertical_level=10.0
                 )
-                ncss_data = ncss.get_data(query)
+
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
-                    lat = np.array(ds0["latitude"])
-                    lat = np.flip(lat)
+                    lat = np.array(ds0["latitude"])[::-1]
+                    lon = np.array(ds0["longitude"])
+                    ds_full["lat"] = xr.DataArray(lat, dims="lat")
+                    ds_full["lon"] = xr.DataArray(lon, dims="lon")
 
-                    ds["lon"] = np.array(ds0["longitude"]) - 360.0
-                    ds["lat"] = lat
-                    ds["time"] = ds0["time"]
+                    if "time1" in ds0:
+                        ds0 = ds0.rename({"time1": "time"})
+                    elif "time2" in ds0:
+                        ds0 = ds0.rename({"time2": "time"})
+                    ds_full["time"] =  xr.DataArray(np.array(ds0["time"]), dims="time")
 
-                    ds["wind_u"] = xr.DataArray(
+                    ds_full["wind_u"] = xr.DataArray(
                         np.flip(
                             np.squeeze(
                                 ds0[
                                     "u-component_of_wind_height_above_ground"
                                 ].to_numpy()
-                            )
-                        ),
+                            ),
+                        axis=1,),
                         dims=("time", "lat", "lon"),
                     )
-                    ds["wind_v"] = xr.DataArray(
+                    ds_full["wind_v"] = xr.DataArray(
                         np.flip(
                             np.squeeze(
                                 ds0[
                                     "v-component_of_wind_height_above_ground"
                                 ].to_numpy()
-                            )
-                        ),
+                            ),
+                        axis=1,),
                         dims=("time", "lat", "lon"),
                     )
 
@@ -141,36 +151,43 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     var_name = "Precipitation_rate_surface"
                     fac = 3600.0
 
-                query = ncss.query()
-                query.lonlat_box(
-                    north=self.lat_range[1],
-                    south=self.lat_range[0],
-                    east=self.lon_range[1],
-                    west=self.lon_range[0],
-                ).time_range(time_range[0], time_range[1])
-                query.variables(var_name)
-                ncss_data = ncss.get_data(query)
+                ncss_data = query_ncss([var_name])
+
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
                     # Check if lon, lat and time are already in the dataset
-                    if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                        ds["lon"] = np.array(ds0["longitude"]) - 360.0
-                        lat = np.array(ds0["latitude"])
-                        lat = np.flip(lat)
-                        ds["lat"] = lat
-                        ds["time"] = ds0["time"]
+                    if "lon" not in ds_full or "lat" not in ds_full or "time" not in ds_full:
+                        ds_full["lon"] = xr.DataArray(np.array(ds0["longitude"]), dims="lon")
+                        ds_full["lat"] = xr.DataArray(np.array(ds0["latitude"])[::-1], dims="lat")
 
-                    v = np.flip(np.squeeze(ds0[var_name].to_numpy()))
+                        if "time1" in ds0:
+                            ds0 = ds0.rename({"time1": "time"})
+                        elif "time2" in ds0:
+                            ds0 = ds0.rename({"time2": "time"})
+                        ds_full["time"] = xr.DataArray(np.array(ds0["time"]), dims="time")
+
+                    v = np.flip(np.squeeze(ds0[var_name].to_numpy()), axis=1)
 
                     if param == "precipitation":
                         v = v * fac
 
-                    ds[param] = xr.DataArray(v, dims=("time", "lat", "lon"))
+                    ds_full[param] = xr.DataArray(v, dims=("time", "lat", "lon"))
 
-        write2nc(ds, self.name, os.path.join(self.path, cycle_name))
+        # --- Subset and reorder longitude based on self.lon_range ---
+        lon_min, lon_max = self.lon_range
+        # ds_full = ds_full.assign_coords(lon=((ds_full.lon + 360) % 360))  # ensure 0-360
 
-        ds.close()
+        if lon_min <= lon_max:
+            ds_sel = ds_full.sel(lon=slice(lon_min, lon_max))
+        else:
+            ds_part1 = ds_full.sel(lon=slice(lon_min, 360))
+            ds_part2 = ds_full.sel(lon=slice(0, lon_max))
+            ds_sel = xr.concat([ds_part1, ds_part2], dim="lon")
 
-        self.ds = ds
+        write2nc(ds_sel, self.name, os.path.join(self.path, cycle_name))
+
+        ds_sel.close()
+
+        self.ds = ds_sel
 
 
 def write2nc(ds, meteo_name, meteo_path):
@@ -182,6 +199,6 @@ def write2nc(ds, meteo_name, meteo_path):
         full_file_name = os.path.join(meteo_path, file_name)
         ds_time = ds.isel(time=it)
         # Remove time and reftime
-        ds_time = ds_time.drop_vars(["time", "reftime"])
+        ds_time = ds_time.drop_vars(["time"])
         ds_time.to_netcdf(path=full_file_name)
         ds_time.close()
