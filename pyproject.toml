@@ -29,7 +29,7 @@ dependencies = [
     "tomli",
     "netCDF4",
 	"tqdm",
-	"ecmwf",
+	"ecmwf-opendata",
     "cht_utils"]
 
 dynamic = ["version"]
