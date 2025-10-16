@@ -5,6 +5,7 @@ import pandas as pd
 import xarray as xr
 from ecmwf.opendata import Client
 from tqdm import tqdm
+import cfgrib 
 
 from .dataset import MeteoDataset
 

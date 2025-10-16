@@ -30,6 +30,7 @@ dependencies = [
     "netCDF4",
 	"tqdm",
 	"ecmwf-opendata",
+	"cfgrib",
     "cht_utils"]
 
 dynamic = ["version"]
