@@ -8,6 +8,7 @@ from .ecmwf_forecast_0p25 import MeteoDatasetECMWFForecast0p25
 from .gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
 from .gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
 from .gfs_forecast_0p25_ncar_archive import MeteoDatasetGFSForecast0p25NCARArchive
+from .era5_reanalysis_0p25 import MeteoDatasetERA5Reanalysis0p25
 from .matroos_forecast import MeteoDatasetMatroos
 
 
@@ -65,6 +66,10 @@ class MeteoDatabase:
                 )
             elif source_name == "ecmwf_forecast_0p25":
                 md = MeteoDatasetECMWFForecast0p25(
+                    name=dataset_name, path=dataset_path, **kwargs
+                )
+            elif source_name == "era5_reanalysis_0p25":
+                md = MeteoDatasetERA5Reanalysis0p25(
                     name=dataset_name, path=dataset_path, **kwargs
                 )
             elif source_name == "matroos":

@@ -70,7 +70,7 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         # =============================================================
 
         # Forecast hours (0–72 every 3h)
-        forecast_hours = range(0, 73, 3)
+        forecast_hours = list(range(0, 73, 3))
 
         # ECMWF short names for variables
         variables = ["10u", "10v", "msl", "tp"]  # include total precipitation
@@ -97,22 +97,39 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
         print(f"Downloading ECMWF open forecast: {date} {time} UTC")
 
+        # for var in variables:
+        #     for step in tqdm(forecast_hours, desc=f"Downloading {var}"):
+        #         target = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
+        #         if not os.path.exists(target):
+        #             try:
+        #                 client.retrieve(
+        #                     date=date,
+        #                     time=cycle_time.hour,
+        #                     step=step,
+        #                     param=var,
+        #                     stream="oper",
+        #                     type="fc",
+        #                     target=target,
+        #                 )
+        #             except Exception as e:
+        #                 print(f"⚠️ Failed to get {var} +{step}h: {e}")
+
         for var in variables:
-            for step in tqdm(forecast_hours, desc=f"Downloading {var}"):
-                target = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
-                if not os.path.exists(target):
-                    try:
-                        client.retrieve(
-                            date=date,
-                            time=cycle_time.hour,
-                            step=step,
-                            param=var,
-                            stream="oper",
-                            type="fc",
-                            target=target,
-                        )
-                    except Exception as e:
-                        print(f"⚠️ Failed to get {var} +{step}h: {e}")
+            print(f"Downloading {var}")
+            target = os.path.join(output_dir, f"{var}.grib2")
+            if not os.path.exists(target):
+                try:
+                    client.retrieve(
+                        date=date,
+                        time=cycle_time.hour,
+                        step=forecast_hours,
+                        param=var,
+                        stream="oper",
+                        type="fc",
+                        target=target,
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to get {var}: {e}")
 
         print("✅ All downloads completed.")
 
@@ -122,25 +139,42 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
         datasets = []
 
+        # for var in variables:
+        #     var_datasets = []
+        #     for step in forecast_hours:
+        #         file = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
+        #         if os.path.exists(file):
+        #             ds = xr.open_dataset(file, engine="cfgrib")
+        #             ds = ds.assign_coords(step=step)
+
+        #             # Clip to requested region (after load)
+        #             if lon_lim is not None and lat_lim is not None:
+        #                 ds = ds.sel(
+        #                     latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
+        #                     longitude=slice(lon_lim[0], lon_lim[1]),
+        #                 )
+
+        #             var_datasets.append(ds)
+
+        #     if var_datasets:
+        #         datasets.append(xr.concat(var_datasets, dim="step"))
+
         for var in variables:
             var_datasets = []
-            for step in forecast_hours:
-                file = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
-                if os.path.exists(file):
-                    ds = xr.open_dataset(file, engine="cfgrib")
-                    ds = ds.assign_coords(step=step)
-
-                    # Clip to requested region (after load)
-                    if lon_lim is not None and lat_lim is not None:
-                        ds = ds.sel(
-                            latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
-                            longitude=slice(lon_lim[0], lon_lim[1]),
-                        )
-
-                    var_datasets.append(ds)
+            file = os.path.join(output_dir, f"{var}.grib2")
+            if os.path.exists(file):
+                ds = xr.open_dataset(file, engine="cfgrib")
+                # Clip to requested region (after load)
+                if lon_lim is not None and lat_lim is not None:
+                    ds = ds.sel(
+                        latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
+                        longitude=slice(lon_lim[0], lon_lim[1]),
+                    )
+                var_datasets.append(ds)
 
             if var_datasets:
                 datasets.append(xr.concat(var_datasets, dim="step"))
+
 
         # Merge variables
         ds_merged = xr.merge(datasets)

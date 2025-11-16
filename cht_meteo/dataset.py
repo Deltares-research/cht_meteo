@@ -234,39 +234,45 @@ class MeteoDataset:
                 print(e)
 
     def download_analysis(self, time_range, **kwargs):
-        # Check if this dataset has a download_forecast_cycle method
-        if not hasattr(self, "download_analysis_times"):
-            print(
-                f"Error: download_analysis_times method not implemented for dataset {self.name}"
+
+        # Check if this dataset has a download_analysis_times method (e.g. gfs_analysis_0p50)
+
+        if hasattr(self, "download_analysis_times"):
+
+            # Make list of requested times
+            freqstr = str(self.source_time_interval) + "h"
+            requested_times = (
+                pd.date_range(start=time_range[0], end=time_range[1], freq=freqstr)
+                .to_pydatetime()
+                .tolist()
             )
-            return
 
-        # Make list of requested times
-        freqstr = str(self.source_time_interval) + "h"
-        requested_times = (
-            pd.date_range(start=time_range[0], end=time_range[1], freq=freqstr)
-            .to_pydatetime()
-            .tolist()
-        )
+            # Loop through all requested times and see which data is already available
+            rtimes = []
+            # Check which files do not yet exist
+            for t in requested_times:
+                file_name = os.path.join(
+                    self.path, f"{self.name}.{t.strftime('%Y%m%d_%H%M')}.nc"
+                )
+                if not os.path.exists(file_name):
+                    rtimes.append(t)
 
-        # Loop through all requested times and see which data is already available
-        rtimes = []
-        # Check which files do not yet exist
-        for t in requested_times:
-            file_name = os.path.join(
-                self.path, f"{self.name}.{t.strftime('%Y%m%d_%H%M')}.nc"
-            )
-            if not os.path.exists(file_name):
-                rtimes.append(t)
+            if rtimes:
+                try:
+                    self.download_analysis_times(rtimes)
+                except Exception as e:
+                    print(f"Error downloading data from dataset {self.name}")
+                    print(e)
+            else:
+                print("Requested meteo data already available")
 
-        if rtimes:
+        elif hasattr(self, "download_reanalysis"): # e.g. era5_reanalysis_0p25
+
             try:
-                self.download_analysis_times(rtimes)
+                self.download_reanalysis(time_range, **kwargs)
             except Exception as e:
                 print(f"Error downloading data from dataset {self.name}")
-                print(e)
-        else:
-            print("Requested meteo data already available")
+                print(e)      
 
     def collect(self, time_range, **kwargs):
         """Merge data from separate netcdf files. The actual data is stored in the xarray dataset self.ds. This is a list, so we can optionally store multiple subsets of the data."""
@@ -335,6 +341,7 @@ class MeteoDataset:
 
                     # Set this as the last cycle that is collected (used e.g. to display in CoSMoS webviewer)
                     self.last_forecast_cycle_time = t_cycle
+                    self.last_analysis_time = t_cycle
 
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(
