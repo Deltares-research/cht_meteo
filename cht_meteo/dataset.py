@@ -711,16 +711,17 @@ class MeteoDataset:
         # Loop through variables
         for var_name in self.var_names:
             da = self.ds[var_name].copy()
-            for it, t in enumerate(self.ds["time"].to_numpy()):
-                # Get data
-                v = dataset.interpolate_variable(var_name, t, xg, yg, crs=self.crs)
-                # Set points in v equal to points in original data vori where vori already has a value
-                vori = da.loc[dict(time=t)].to_numpy()[:]
-                not_nan = np.where(~np.isnan(vori))
-                v[not_nan] = vori[not_nan]
-                da.loc[dict(time=t)] = v
+            if var_name in dataset.ds:
+                for it, t in enumerate(self.ds["time"].to_numpy()):
+                    # Get data                
+                    v = dataset.interpolate_variable(var_name, t, xg, yg, crs=self.crs)
+                    # Set points in v equal to points in original data vori where vori already has a value
+                    vori = da.loc[dict(time=t)].to_numpy()[:]
+                    not_nan = np.where(~np.isnan(vori))
+                    v[not_nan] = vori[not_nan]
+                    da.loc[dict(time=t)] = v
 
-            self.ds[var_name] = da
+                self.ds[var_name] = da
 
     def merge_datasets(self, datasets, **kwargs):
         """Merge datasets. This is useful when we have multiple datasets with different resolutions."""

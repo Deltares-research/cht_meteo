@@ -23,7 +23,7 @@ class MeteoDatasetERA5Reanalysis0p25(MeteoDataset):
         self.source_time_interval = 1
 
 
-    def download_reanalysis(self, time_range, chunk="day"):
+    def download_reanalysis(self, time_range, chunk="day", last_cycle=None):
         """
         Downloads ERA5 reanalysis data for the given time range.
 
