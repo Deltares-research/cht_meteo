@@ -224,7 +224,8 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         ds_merged = ds_merged.rename(rename_dict)
 
         # Remove "time" (this is the cycle time, not the forecast time) and rename "valid_time" to "time"
-        ds_merged = ds_merged.drop_vars("time")
+        # Also remove step, as it has an attribute "dtype" 
+        ds_merged = ds_merged.drop_vars(["time", "step"], errors="ignore")
         ds_merged = ds_merged.rename({"valid_time": "time"})
 
         # Now set the first dimension to be "time" (forecast valid time)
