@@ -418,9 +418,9 @@ class MeteoDataset:
                     self.last_analysis_time = t_cycle
 
                     # Find all times available in this cycle as it may contain our data
-                    files_in_cycle = fo.list_files(
-                        os.path.join(cycle_path, f"*{subsetstr}*.nc")
-                    )
+                    files_in_cycle = fo.list_files(cycle_path,
+                                                   pattern=f"*{subsetstr}*.nc",
+                                                   full_path=True)
 
                     icycle += 1
 
