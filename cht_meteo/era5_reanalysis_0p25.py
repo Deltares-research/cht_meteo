@@ -3,7 +3,6 @@
 import os
 import zipfile
 
-import cdsapi
 import pandas as pd
 import xarray as xr
 
@@ -303,6 +302,8 @@ def download_era5_day(year: int, month: int, day: int, lon_range: list, lat_rang
         "area": [lat_range[1], lon_range[0], lat_range[0], lon_range[1]],
     }
 
+    import cdsapi
+
     client = cdsapi.Client()
     client.retrieve(dataset, request, target=pth)
 
@@ -377,6 +378,8 @@ def download_era5_month(year: int, month: int, lon_range: list, lat_range: list,
         "data_format": "netcdf",
         "area": [lat_range[1], lon_range[0], lat_range[0], lon_range[1]],
     }
+
+    import cdsapi
 
     client = cdsapi.Client()
     client.retrieve(dataset, request, target=pth)
