@@ -141,7 +141,9 @@ class MeteoDataset:
                     dims=("time", "y", "x"),
                 )
 
-    def fill(self, u: float = 0.0, v: float = 0.0, p: float = 101300.0, pr: float = 0.0) -> None:
+    def fill(
+        self, u: float = 0.0, v: float = 0.0, p: float = 101300.0, pr: float = 0.0
+    ) -> None:
         """Fill the dataset with constant values.
 
         Parameters
@@ -418,9 +420,9 @@ class MeteoDataset:
                     self.last_analysis_time = t_cycle
 
                     # Find all times available in this cycle as it may contain our data
-                    files_in_cycle = fo.list_files(cycle_path,
-                                                   pattern=f"*{subsetstr}*.nc",
-                                                   full_path=True)
+                    files_in_cycle = fo.list_files(
+                        cycle_path, pattern=f"*{subsetstr}*.nc", full_path=True
+                    )
 
                     icycle += 1
 
@@ -768,7 +770,9 @@ class MeteoDataset:
 
         return dataset
 
-    def interpolate_dataset(self, dataset: "MeteoDataset", copy_time: bool = False) -> None:
+    def interpolate_dataset(
+        self, dataset: "MeteoDataset", copy_time: bool = False
+    ) -> None:
         """Interpolate data from another dataset onto this dataset's grid.
 
         Parameters
@@ -1034,7 +1038,13 @@ class MeteoDataset:
                 self, file_name, path=path, refdate=refdate, parameters=parameters
             )
 
-    def wind_to_json(self, file_name: str, time_range: list | None = None, js: bool = True, iref: int = 1) -> None:
+    def wind_to_json(
+        self,
+        file_name: str,
+        time_range: list | None = None,
+        js: bool = True,
+        iref: int = 1,
+    ) -> None:
         """Write wind data to a JSON file suitable for web-based wind visualisation.
 
         Parameters
@@ -1137,7 +1147,9 @@ def add_time_coord(ds: xr.Dataset, date: datetime.datetime, moving: bool) -> xr.
     return ds
 
 
-def get_buffered_slice(coord_array: np.ndarray, min_val: float, max_val: float, buffer: int = 2) -> slice:
+def get_buffered_slice(
+    coord_array: np.ndarray, min_val: float, max_val: float, buffer: int = 2
+) -> slice:
     """Return a coordinate slice with a cell buffer around the given value range.
 
     Parameters

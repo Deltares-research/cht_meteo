@@ -43,6 +43,6 @@ def test_forecast_merge(
     dataset.merge_datasets([gfs_anl_dataset])
     # Check if the data was filled correctly
     for var in dataset.ds.data_vars:
-        assert not np.isnan(dataset.ds[var].to_numpy()).any(), (
-            f"NaN values found in variable {var}"
-        )
+        assert not np.isnan(
+            dataset.ds[var].to_numpy()
+        ).any(), f"NaN values found in variable {var}"

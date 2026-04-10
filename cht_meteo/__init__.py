@@ -16,7 +16,12 @@ from cht_meteo.gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
 __all__ = ["MeteoDatabase"]
 
 
-def dataset(name: str | None = None, source: str | None = None, path: str | None = None, **kwargs) -> MeteoDataset:
+def dataset(
+    name: str | None = None,
+    source: str | None = None,
+    path: str | None = None,
+    **kwargs,
+) -> MeteoDataset:
     """Create a MeteoDataset for the given source.
 
     Parameters

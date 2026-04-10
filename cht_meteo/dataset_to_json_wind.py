@@ -5,7 +5,13 @@ import json
 import numpy as np
 
 
-def write_wind_to_json(dataset, file_name: str, time_range: list | None = None, iref: int = 1, js: bool = False) -> None:
+def write_wind_to_json(
+    dataset,
+    file_name: str,
+    time_range: list | None = None,
+    iref: int = 1,
+    js: bool = False,
+) -> None:
     """Write wind components to a JSON file compatible with wind-visualisation libraries.
 
     The output follows the GFS/GRIB2-style JSON schema used by, for example,

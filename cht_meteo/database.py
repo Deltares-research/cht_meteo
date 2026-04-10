@@ -63,7 +63,9 @@ class MeteoDatabase:
             lst.append(dataset_name)
         return lst
 
-    def add_dataset(self, dataset_name: str, source_name: str | None, **kwargs) -> MeteoDataset:
+    def add_dataset(
+        self, dataset_name: str, source_name: str | None, **kwargs
+    ) -> MeteoDataset:
         """Instantiate and register a dataset by source name.
 
         Parameters

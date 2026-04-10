@@ -30,7 +30,9 @@ class MeteoDatasetERA5Reanalysis0p25(MeteoDataset):
         self.source_type = "reanalysis"
         self.source_time_interval = 1
 
-    def download_reanalysis(self, time_range: list, chunk: str = "day", last_cycle=None) -> None:
+    def download_reanalysis(
+        self, time_range: list, chunk: str = "day", last_cycle=None
+    ) -> None:
         """Download ERA5 reanalysis data for the given time range.
 
         Parameters
@@ -160,9 +162,7 @@ class MeteoDatasetERA5Reanalysis0p25(MeteoDataset):
             ok = True
             for it in range(24):
                 time_string = dy.strftime("%Y%m%d") + f"_{it:02d}00"
-                file_name = os.path.join(
-                    self.path, f"{self.name}.{time_string}.nc"
-                )
+                file_name = os.path.join(self.path, f"{self.name}.{time_string}.nc")
                 if not os.path.exists(file_name):
                     ok = False
                     break
@@ -241,7 +241,9 @@ class MeteoDatasetERA5Reanalysis0p25(MeteoDataset):
                 print(f"Error deleting temporary files: {e}")
 
 
-def download_era5_day(year: int, month: int, day: int, lon_range: list, lat_range: list, pth: str) -> None:
+def download_era5_day(
+    year: int, month: int, day: int, lon_range: list, lat_range: list, pth: str
+) -> None:
     """Submit a CDS API request for a single day of ERA5 data.
 
     Parameters
@@ -308,7 +310,9 @@ def download_era5_day(year: int, month: int, day: int, lon_range: list, lat_rang
     client.retrieve(dataset, request, target=pth)
 
 
-def download_era5_month(year: int, month: int, lon_range: list, lat_range: list, pth: str) -> None:
+def download_era5_month(
+    year: int, month: int, lon_range: list, lat_range: list, pth: str
+) -> None:
     """Submit a CDS API request for a full calendar month of ERA5 data.
 
     Parameters

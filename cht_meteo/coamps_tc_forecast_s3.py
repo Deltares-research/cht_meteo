@@ -128,9 +128,7 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
 
         tar_file_full_path = os.path.join(tar_file_path, tar_file_name)
 
-        url = (
-            f"{base_url}/{year}/{storm_number}/{cycle_time_coamps}/{tar_file_name}"
-        )
+        url = f"{base_url}/{year}/{storm_number}/{cycle_time_coamps}/{tar_file_name}"
 
         # Download the tar file
         print(f"Downloading {url}")
@@ -153,12 +151,14 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         for subset in self.subset:
             res = subset.name
             # Get list of all the files in the _TMP/netcdf folder
-            #file_list = fo.list_files(
+            # file_list = fo.list_files(
             #    os.path.join(tar_file_path, "netcdf", f"*_{res}_*")
-            #)
-            file_list = fo.list_files(os.path.join(tar_file_path, "netcdf"),
-                                      pattern=f"*_{res}_*",
-                                      full_path=False)
+            # )
+            file_list = fo.list_files(
+                os.path.join(tar_file_path, "netcdf"),
+                pattern=f"*_{res}_*",
+                full_path=False,
+            )
 
             for file_name in file_list:
                 # Read tau from file name
