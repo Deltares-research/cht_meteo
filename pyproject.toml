@@ -57,3 +57,10 @@ Source = "https://github.com/Deltares/cht_meteo"
 [tool.pytest.ini_options]
 addopts = "--cov cht_meteo --cov-report xml"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501", "PD901"]
