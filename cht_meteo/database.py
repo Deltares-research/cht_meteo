@@ -1,3 +1,5 @@
+"""MeteoDatabase: registry of named meteorological datasets backed by a TOML file."""
+
 import os
 
 import toml
@@ -5,28 +7,40 @@ import toml
 from .coamps_tc_forecast_s3 import MeteoDatasetCOAMPSTCForecastS3
 from .dataset import MeteoDataset
 from .ecmwf_forecast_0p25 import MeteoDatasetECMWFForecast0p25
+from .era5_reanalysis_0p25 import MeteoDatasetERA5Reanalysis0p25
 from .gfs_anl_0p50 import MeteoDatasetGFSAnalysis0p50
 from .gfs_forecast_0p25 import MeteoDatasetGFSForecast0p25
 from .gfs_forecast_0p25_ncar_archive import MeteoDatasetGFSForecast0p25NCARArchive
-from .era5_reanalysis_0p25 import MeteoDatasetERA5Reanalysis0p25
 from .matroos_forecast import MeteoDatasetMatroos
 
 
 class MeteoDatabase:
-    def __init__(self, path=None):
+    """Registry of meteorological datasets.
+
+    Parameters
+    ----------
+    path : str, optional
+        Root directory where dataset sub-folders are stored.
+    """
+
+    def __init__(self, path: str | None = None) -> None:
         # Initialize the database
         self.path = path
         self.dataset = {}
-        # self.source = {}
-        # self.set_sources()
 
-    def print_datasets(self):
-        # Print a list of all datasets
+    def print_datasets(self) -> None:
+        """Print a summary of all registered datasets."""
         for dataset_name, dataset in self.dataset.items():
-            print(dataset_name + " - source : " + dataset.source_name)
+            print(f"{dataset_name} - source : {dataset.source_name}")
 
-    def list_sources(self):
-        # Returns a list the available sources
+    def list_sources(self) -> list[str]:
+        """Return the list of supported source identifiers.
+
+        Returns
+        -------
+        list of str
+            Available source names.
+        """
         return [
             "gfs_forecast_0p25",
             "gfs_analysis_0p50",
@@ -36,15 +50,37 @@ class MeteoDatabase:
             "custom",
         ]
 
-    def list_dataset_names(self):
-        # Returns a list the available sources
+    def list_dataset_names(self) -> list[str]:
+        """Return the names of all registered datasets.
+
+        Returns
+        -------
+        list of str
+            Dataset names.
+        """
         lst = []
         for dataset_name, dataset in self.dataset.items():
             lst.append(dataset_name)
         return lst
 
-    def add_dataset(self, dataset_name, source_name, **kwargs):
-        # Add a dataset to the database
+    def add_dataset(self, dataset_name: str, source_name: str | None, **kwargs) -> MeteoDataset:
+        """Instantiate and register a dataset by source name.
+
+        Parameters
+        ----------
+        dataset_name : str
+            Unique name for the dataset within this database.
+        source_name : str or None
+            Source identifier; ``None`` creates a generic :class:`MeteoDataset`.
+        **kwargs
+            Extra arguments forwarded to the dataset constructor (e.g.
+            ``lon_range``, ``lat_range``, ``tau``).
+
+        Returns
+        -------
+        MeteoDataset
+            The newly created and registered dataset.
+        """
         dataset_path = os.path.join(self.path, dataset_name)
 
         if source_name is not None:
@@ -101,10 +137,6 @@ class MeteoDatabase:
                     f"Error while reading meteo database : source {source_name} not recognized"
                 )
 
-                # #TODO do we want to add download functionality in a flexible way to the generic MeteoDatasets? E.g. using a file with download function only.
-                # if "download_forecast_cycle" in kwargs:
-                #     md.download_forecast_cycle = download
-
         else:
             # Use generic meteo dataset (this does not have download functionality)
             md = MeteoDataset(name=dataset_name, path=dataset_path, **kwargs)
@@ -114,8 +146,20 @@ class MeteoDatabase:
 
         return md
 
-    def read_datasets(self, filename=None):
-        """Read the datasets from a toml file"""
+    def read_datasets(self, filename: str | None = None) -> None:
+        """Populate the database from a TOML configuration file.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Path to the TOML file.  Defaults to
+            ``<self.path>/meteo_database.toml``.
+
+        Raises
+        ------
+        None
+            Prints an error message and returns early if the file is missing.
+        """
 
         if filename is None:
             filename = os.path.join(self.path, "meteo_database.toml")

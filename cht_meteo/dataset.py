@@ -1,3 +1,9 @@
+"""Core MeteoDataset class and supporting helpers for meteorological data handling.
+
+Provides storage, download orchestration, spatial cut-out / interpolation,
+and export routines (Delft3D, JSON wind) for gridded meteorological datasets.
+"""
+
 import copy
 import datetime
 import os
@@ -15,7 +21,17 @@ from cht_meteo.dataset_to_json_wind import write_wind_to_json
 
 
 class MeteoDataset:
-    def __init__(self, **kwargs):
+    """Container for a gridded meteorological dataset.
+
+    Parameters
+    ----------
+    **kwargs
+        Arbitrary keyword arguments used to set instance attributes.
+        Special keys ``time``, ``x``/``lon``, and ``y``/``lat`` initialise
+        the underlying xarray Dataset via :meth:`init_ds`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         # Default values set to None
         self.name = None  # Name of the dataset
         self.path = None  # Path to the dataset
@@ -87,8 +103,18 @@ class MeteoDataset:
         if time is not None and x is not None and y is not None:
             self.init_ds(time, x, y)
 
-    def init_ds(self, time, x, y):
-        """Fill the dataset with nodata values."""
+    def init_ds(self, time: np.ndarray, x: np.ndarray, y: np.ndarray) -> None:
+        """Initialise the xarray Dataset with NaN-filled arrays.
+
+        Parameters
+        ----------
+        time : array-like
+            Time coordinate values.
+        x : array-like
+            Longitude (or x) coordinate values.
+        y : array-like
+            Latitude (or y) coordinate values.
+        """
 
         x = np.array(x)
         y = np.array(y)
@@ -115,8 +141,20 @@ class MeteoDataset:
                     dims=("time", "y", "x"),
                 )
 
-    def fill(self, u=0.0, v=0.0, p=101300.0, pr=0.0):
-        """Fill the dataset with constant values."""
+    def fill(self, u: float = 0.0, v: float = 0.0, p: float = 101300.0, pr: float = 0.0) -> None:
+        """Fill the dataset with constant values.
+
+        Parameters
+        ----------
+        u : float, optional
+            East-ward wind component (m/s).  Default ``0.0``.
+        v : float, optional
+            North-ward wind component (m/s).  Default ``0.0``.
+        p : float, optional
+            Barometric pressure (Pa).  Default ``101300.0``.
+        pr : float, optional
+            Precipitation rate (mm/h).  Default ``0.0``.
+        """
 
         if "wind_u" in self.ds:
             self.ds["wind_u"][:, :, :] = u
@@ -127,7 +165,17 @@ class MeteoDataset:
         if "precipitation" in self.ds:
             self.ds["precipitation"][:, :, :] = pr
 
-    def download(self, time_range, **kwargs):
+    def download(self, time_range: list, **kwargs) -> None:
+        """Download data for the given time range.
+
+        Parameters
+        ----------
+        time_range : list of datetime
+            ``[start, end]`` time interval to download.
+        **kwargs
+            Forwarded to :meth:`download_forecast` or
+            :meth:`download_analysis`.
+        """
         # Make path
         os.makedirs(self.path, exist_ok=True)
 
@@ -138,10 +186,17 @@ class MeteoDataset:
             # Download analysis
             self.download_analysis(time_range, **kwargs)
 
-    def download_forecast(
-        self, time_range, **kwargs
-    ):  # Need to check on previous cycles
-        """ "Download all (!) data from a forecast dataset. This is done by downloading all cycles within the time range."""
+    def download_forecast(self, time_range: list, **kwargs) -> None:
+        """Download all forecast cycles that cover the requested time range.
+
+        Parameters
+        ----------
+        time_range : list of datetime
+            ``[start, end]`` time interval.
+        **kwargs
+            Optional key ``last_cycle`` (datetime) caps the latest cycle
+            that will be downloaded.
+        """
 
         # Check if this dataset has a download_forecast_cycle method
         if not hasattr(self, "download_forecast_cycle"):
@@ -172,8 +227,7 @@ class MeteoDataset:
         )
 
         print(
-            "Now : "
-            + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+            f"Now : {datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         )
 
         # Determine latest available cycle
@@ -183,7 +237,7 @@ class MeteoDataset:
         h0 = t_latest.hour
         h0 = h0 - np.mod(h0, self.source_cycle_interval)
         t_latest = t_latest.replace(microsecond=0, second=0, minute=0, hour=h0)
-        print("t_latest : " + t_latest.strftime("%Y%m%d_%H%M%S"))
+        print(f"t_latest : {t_latest.strftime('%Y%m%d_%H%M%S')}")
 
         # Make sure t0 and t1 are not later than t_latest
         t0 = min(t0, t_latest)
@@ -191,14 +245,12 @@ class MeteoDataset:
 
         print(
             f"Downloading from {self.name} - cycles : "
-            + t0.strftime("%Y%m%d_%Hz")
-            + " to "
-            + t1.strftime("%Y%m%d_%Hz")
+            f"{t0.strftime('%Y%m%d_%Hz')} to {t1.strftime('%Y%m%d_%Hz')}"
         )
 
         # Make list with cycle times
         cycle_times = (
-            pd.date_range(start=t0, end=t1, freq=str(self.source_cycle_interval) + "h")
+            pd.date_range(start=t0, end=t1, freq=f"{self.source_cycle_interval}h")
             .to_pydatetime()
             .tolist()
         )
@@ -206,8 +258,7 @@ class MeteoDataset:
         # If last_cycle has been provided, do not get data from later cycles
         if last_cycle_time is not None:
             print(
-                "Downloading up to last_cycle : "
-                + last_cycle_time.strftime("%Y%m%d_%Hz")
+                f"Downloading up to last_cycle : {last_cycle_time.strftime('%Y%m%d_%Hz')}"
             )
             cycle_times = [t for t in cycle_times if t <= last_cycle_time]
 
@@ -215,7 +266,7 @@ class MeteoDataset:
         for it, t in enumerate(cycle_times):
             print(
                 f"Downloading {it + 1} of {len(cycle_times)} - cycle : "
-                + t.strftime("%Y%m%d_%Hz")
+                f"{t.strftime('%Y%m%d_%Hz')}"
             )
             try:
                 if it < len(cycle_times) - 1:
@@ -233,14 +284,22 @@ class MeteoDataset:
                 )
                 print(e)
 
-    def download_analysis(self, time_range, **kwargs):
+    def download_analysis(self, time_range: list, **kwargs) -> None:
+        """Download analysis or reanalysis data for the requested time range.
+
+        Parameters
+        ----------
+        time_range : list of datetime
+            ``[start, end]`` time interval.
+        **kwargs
+            Forwarded to the concrete download method.
+        """
 
         # Check if this dataset has a download_analysis_times method (e.g. gfs_analysis_0p50)
 
         if hasattr(self, "download_analysis_times"):
-
             # Make list of requested times
-            freqstr = str(self.source_time_interval) + "h"
+            freqstr = f"{self.source_time_interval}h"
             requested_times = (
                 pd.date_range(start=time_range[0], end=time_range[1], freq=freqstr)
                 .to_pydatetime()
@@ -266,16 +325,31 @@ class MeteoDataset:
             else:
                 print("Requested meteo data already available")
 
-        elif hasattr(self, "download_reanalysis"): # e.g. era5_reanalysis_0p25
-
+        elif hasattr(self, "download_reanalysis"):  # e.g. era5_reanalysis_0p25
             try:
                 self.download_reanalysis(time_range, **kwargs)
             except Exception as e:
                 print(f"Error downloading data from dataset {self.name}")
-                print(e)      
+                print(e)
 
-    def collect(self, time_range, **kwargs):
-        """Merge data from separate netcdf files. The actual data is stored in the xarray dataset self.ds. This is a list, so we can optionally store multiple subsets of the data."""
+    def collect(self, time_range: list, **kwargs) -> xr.Dataset:
+        """Merge per-cycle netCDF files into a single in-memory xarray Dataset.
+
+        The actual data is stored in ``self.ds`` (or in each element of
+        ``self.subset`` for multi-resolution datasets such as COAMPS-TC).
+
+        Parameters
+        ----------
+        time_range : list of datetime
+            ``[start, end]`` time interval to collect.
+        **kwargs
+            Optional keys: ``tau`` (int, hours), ``last_cycle`` (datetime).
+
+        Returns
+        -------
+        xr.Dataset
+            The assembled dataset (also stored on ``self.ds``).
+        """
 
         if "tau" in kwargs:
             tau = kwargs["tau"]
@@ -345,7 +419,7 @@ class MeteoDataset:
 
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(
-                        os.path.join(cycle_path, "*" + subsetstr + "*.nc")
+                        os.path.join(cycle_path, f"*{subsetstr}*.nc")
                     )
 
                     icycle += 1
@@ -380,30 +454,10 @@ class MeteoDataset:
                             time_list.append(t_file)
                             file_list.append(file)
 
-                # fill_missing_at_start = True
-                # if fill_missing_at_start:
-                #     # Use earliest forecast file available for spinup (force earlier timesteps with this file)
-                #     id1 = next(i for i,v in enumerate(requested_files) if v is not None)
-                #     for ind in range(id1):
-                #         requested_files[ind] = requested_files[id1]
-
-                # # Get rid of None values
-                # times_to_remove = []
-                # for ind, file in enumerate(requested_files):
-                #     if not file:
-                #         times_to_remove.append(requested_times[ind])
-                # if times_to_remove:
-                #     for tr in times_to_remove:
-                #         requested_times.remove(tr)
-                # requested_files = [value for value in requested_files if value != None]
-
-                # # Turn time array into nump array
-                # requested_times = np.array(requested_times)
-
             else:
                 # A lot easier
                 files_in_cycle = fo.list_files(
-                    os.path.join(self.path, "*" + subsetstr + "*.nc")
+                    os.path.join(self.path, f"*{subsetstr}*.nc")
                 )
                 for file in files_in_cycle:
                     try:
@@ -427,15 +481,6 @@ class MeteoDataset:
                 for f, t in zip(file_list, time_list)
             ]
 
-            # # Read in first file to get lons and lats
-            # with xr.open_dataset(file_list[0]) as ds0:
-            #     lon = ds0["lon"].to_numpy()[:]
-            #     if lon[0] > 180.0:
-            #         lon = lon - 360.0
-            #     elif lon[0] < -180.0:
-            #         lon = lon + 360.0
-            #     lat = ds0["lat"].to_numpy()[:]
-
             ds = xr.concat(datasets, dim="time")
 
             # add physically logical fill values to the variables
@@ -452,19 +497,6 @@ class MeteoDataset:
                 if var in ds:
                     ds[var] = ds[var].where(~np.isnan(ds[var]), other=fill_value)
 
-            # Normalize longitude to [-180, 180] if needed
-            # lon = ds["lon"]
-            # if np.any(lon > 180.0):
-            #     if moving:
-            #         ds["lon"].values -= 360
-            #     else:
-            #         ds = ds.assign_coords(lon=ds["lon"].values - 360.0)
-            # if np.any(lon < -180.0):
-            #     if moving:
-            #         ds["lon"].values += 360
-            #     else:
-            #         ds = ds.assign_coords(lon=ds["lon"].values + 360.0)
-
             # Make sure files are oriented S-N
             lat = ds["lat"]
             if lat.ndim == 1:
@@ -474,7 +506,7 @@ class MeteoDataset:
                 if np.nanmean(lat[0]) > np.nanmean(lat[-1]):
                     ds = ds.isel(lat=slice(None, None, -1))
 
-            # Only load the dataset if lazy is False (in-memory is typcailly faster)
+            # Only load the dataset if lazy is False (in-memory is typically faster)
             if not self.lazy:
                 ds = ds.load()
 
@@ -488,22 +520,63 @@ class MeteoDataset:
 
     def cut_out(
         self,
-        name=None,
-        lon_range=None,
-        lat_range=None,
-        time_range=None,
-        x_range=None,
-        y_range=None,
-        lon=None,
-        lat=None,
-        x=None,
-        y=None,
-        dx=None,
-        dy=None,
-        copy_time=False,
-        crs=None,
-    ):
-        """Returns a new meteo dataset with a cut-out of this dataset. If the original dataset has subsets, these will first be interpolated onto to largest (coarsest) subset."""
+        name: str | None = None,
+        lon_range: list | None = None,
+        lat_range: list | None = None,
+        time_range: list | None = None,
+        x_range: list | None = None,
+        y_range: list | None = None,
+        lon: np.ndarray | None = None,
+        lat: np.ndarray | None = None,
+        x: np.ndarray | None = None,
+        y: np.ndarray | None = None,
+        dx: float | None = None,
+        dy: float | None = None,
+        copy_time: bool = False,
+        crs: CRS | None = None,
+    ) -> "MeteoDataset":
+        """Return a new dataset cut out and optionally re-gridded from this one.
+
+        If the original dataset has subsets, they are first interpolated onto
+        the coarsest subset before the cut-out is applied.
+
+        Parameters
+        ----------
+        name : str, optional
+            Name for the new dataset.
+        lon_range : list, optional
+            ``[west, east]`` longitude bounds.
+        lat_range : list, optional
+            ``[south, north]`` latitude bounds.
+        time_range : list of datetime, optional
+            ``[start, end]`` time bounds.
+        x_range : list, optional
+            Alternative to ``lon_range`` for projected CRS.
+        y_range : list, optional
+            Alternative to ``lat_range`` for projected CRS.
+        lon : array-like, optional
+            Explicit longitude array for the output grid.
+        lat : array-like, optional
+            Explicit latitude array for the output grid.
+        x : array-like, optional
+            Explicit x-coordinate array for the output grid.
+        y : array-like, optional
+            Explicit y-coordinate array for the output grid.
+        dx : float, optional
+            Grid spacing in x; triggers interpolation when combined with
+            ``x_range`` / ``y_range``.
+        dy : float, optional
+            Grid spacing in y.
+        copy_time : bool, optional
+            Copy the time coordinate from the source dataset.
+        crs : CRS, optional
+            Target coordinate reference system.  Defaults to ``self.crs``.
+
+        Returns
+        -------
+        MeteoDataset
+            New dataset containing the cut-out data.
+        """
 
         # Start with making a copy of self
 
@@ -695,8 +768,16 @@ class MeteoDataset:
 
         return dataset
 
-    def interpolate_dataset(self, dataset, copy_time=False):
-        """Interpolate data from another dataset to this dataset."""
+    def interpolate_dataset(self, dataset: "MeteoDataset", copy_time: bool = False) -> None:
+        """Interpolate data from another dataset onto this dataset's grid.
+
+        Parameters
+        ----------
+        dataset : MeteoDataset
+            Source dataset to interpolate from.
+        copy_time : bool, optional
+            If ``True``, also copy the time coordinate from *dataset*.
+        """
         # Dimensions have already been set (also time?)
         if copy_time:
             self.ds["time"] = dataset.ds["time"]
@@ -713,7 +794,7 @@ class MeteoDataset:
             da = self.ds[var_name].copy()
             if var_name in dataset.ds:
                 for it, t in enumerate(self.ds["time"].to_numpy()):
-                    # Get data                
+                    # Get data
                     v = dataset.interpolate_variable(var_name, t, xg, yg, crs=self.crs)
                     # Set points in v equal to points in original data vori where vori already has a value
                     vori = da.loc[dict(time=t)].to_numpy()[:]
@@ -723,8 +804,16 @@ class MeteoDataset:
 
                 self.ds[var_name] = da
 
-    def merge_datasets(self, datasets, **kwargs):
-        """Merge datasets. This is useful when we have multiple datasets with different resolutions."""
+    def merge_datasets(self, datasets: list, **kwargs) -> None:
+        """Merge a list of datasets into this one by interpolation.
+
+        Parameters
+        ----------
+        datasets : list of MeteoDataset
+            Datasets to merge, typically at different resolutions.
+        **kwargs
+            Forwarded to :meth:`interpolate_dataset`.
+        """
         for dataset in datasets:
             self.interpolate_dataset(dataset)
 
@@ -732,12 +821,35 @@ class MeteoDataset:
         self,
         var_name: str,
         t: datetime.datetime,
-        x: np.array,
-        y: np.array,
-        crs=None,
-        fill_missing_data=False,
-    ):
-        """Returns numpy array with interpolated values of quantity at requested_time and lon, lat. If quantity is a vector, the function returns the x-component of the vector. If the quantity is not found, the function returns an array with zeros."""
+        x: np.ndarray,
+        y: np.ndarray,
+        crs: CRS | None = None,
+        fill_missing_data: bool = False,
+    ) -> np.ndarray:
+        """Interpolate a single variable to arbitrary coordinates at a given time.
+
+        Parameters
+        ----------
+        var_name : str
+            Variable name present in ``self.ds``.
+        t : datetime or np.datetime64
+            Target time.
+        x : np.ndarray
+            Target x (or longitude) coordinates; 1-D or 2-D.
+        y : np.ndarray
+            Target y (or latitude) coordinates; 1-D or 2-D.
+        crs : CRS, optional
+            CRS of the *x*/*y* coordinates.  If different from ``self.crs``
+            the points are re-projected before interpolation.
+        fill_missing_data : bool, optional
+            When ``True``, fill out-of-domain points with a physical default
+            instead of NaN.
+
+        Returns
+        -------
+        np.ndarray
+            Interpolated values with the same shape as *x*/*y*.
+        """
 
         # Check shape of x and y. They can be either:
         # 1) 1D arrays with regular spacing (turn into grid)
@@ -838,8 +950,17 @@ class MeteoDataset:
 
         return v
 
-    def to_netcdf(self, file_name: Optional[os.PathLike] = None, **kwargs):
-        """Write to netcdf files. This is not implemented yet."""
+    def to_netcdf(self, file_name: Optional[os.PathLike] = None, **kwargs) -> None:
+        """Write the dataset to netCDF file(s).
+
+        Parameters
+        ----------
+        file_name : path-like, optional
+            If given, write the entire dataset to a single file; otherwise
+            write one file per time step to ``self.path``.
+        **kwargs
+            Currently unused; reserved for future use.
+        """
         if file_name:
             # Write to single file
             self.ds.to_netcdf(path=file_name)
@@ -850,7 +971,7 @@ class MeteoDataset:
             time = self.ds["time"].to_numpy()
             for it, t in enumerate(time):
                 time_string = pd.to_datetime(t).strftime("%Y%m%d_%H%M")
-                file_name = self.name + "." + time_string + ".nc"
+                file_name = f"{self.name}.{time_string}.nc"
                 full_file_name = os.path.join(self.path, file_name)
                 ds_time = self.ds.isel(time=it)
                 # Remove time and reftime
@@ -861,14 +982,35 @@ class MeteoDataset:
     def to_delft3d(
         self,
         file_name: Optional[os.PathLike] = None,
-        version="1.03",
-        path=None,
-        header_comments=False,
-        refdate=None,
-        parameters=None,
-        time_range=None,
-        format="ascii",
-    ):
+        version: str = "1.03",
+        path: str | None = None,
+        header_comments: bool = False,
+        refdate: datetime.datetime | None = None,
+        parameters: list | None = None,
+        time_range: list | None = None,
+        format: str = "ascii",
+    ) -> None:
+        """Export the dataset in Delft3D meteo format.
+
+        Parameters
+        ----------
+        file_name : path-like, optional
+            Base file name (without extension).
+        version : str, optional
+            Delft3D meteo file version string.  Default ``"1.03"``.
+        path : str, optional
+            Output directory.
+        header_comments : bool, optional
+            Write verbose header comment lines.
+        refdate : datetime, optional
+            Reference date for the time axis.
+        parameters : list of str, optional
+            Parameters to export (e.g. ``["wind", "barometric_pressure"]``).
+        time_range : list of datetime, optional
+            ``[start, end]`` subset for output.
+        format : str, optional
+            ``"ascii"`` (default) or ``"netcdf"``.
+        """
         if len(self.subset) > 0:
             # There are subsets in this dataset. For now we automatically collect data of each subset.
             print(
@@ -892,11 +1034,37 @@ class MeteoDataset:
                 self, file_name, path=path, refdate=refdate, parameters=parameters
             )
 
-    def wind_to_json(self, file_name, time_range=None, js=True, iref=1):
+    def wind_to_json(self, file_name: str, time_range: list | None = None, js: bool = True, iref: int = 1) -> None:
+        """Write wind data to a JSON file suitable for web-based wind visualisation.
+
+        Parameters
+        ----------
+        file_name : str
+            Output file path.
+        time_range : list of datetime, optional
+            ``[start, end]`` subset to write.
+        js : bool, optional
+            Prepend ``wind = `` so the file can be loaded as a JS module.
+        iref : int, optional
+            Reference index (passed through to the writer).
+        """
         write_wind_to_json(self, file_name, time_range=time_range, iref=iref, js=js)
 
-    def get_coordinates(self, *args):
-        """Returns the horizontal coordinates of the dataset."""
+    def get_coordinates(self, *args) -> tuple[np.ndarray, np.ndarray]:
+        """Return the horizontal coordinate arrays of the dataset.
+
+        Parameters
+        ----------
+        *args
+            Optional subset index (int).  Defaults to ``0``.
+
+        Returns
+        -------
+        x : np.ndarray
+            Longitude or x coordinates.
+        y : np.ndarray
+            Latitude or y coordinates.
+        """
         if len(self.subset) > 0:
             if len(args) > 0:
                 isub = args[0]
@@ -913,8 +1081,19 @@ class MeteoDataset:
             y = ds["y"].to_numpy()
         return x, y
 
-    def get_times(self, *args):
-        """Returns the times of the dataset. In np64."""
+    def get_times(self, *args) -> np.ndarray:
+        """Return the time coordinate array of the dataset.
+
+        Parameters
+        ----------
+        *args
+            Optional subset index (int).  Defaults to ``0``.
+
+        Returns
+        -------
+        np.ndarray
+            Array of ``np.datetime64`` values.
+        """
         if len(self.subset) > 0:
             if len(args) > 0:
                 isub = args[0]
@@ -927,8 +1106,24 @@ class MeteoDataset:
         return t
 
 
-def add_time_coord(ds, date, moving):
-    """Function to add a time-coordinate to a xr.DataSet"""
+def add_time_coord(ds: xr.Dataset, date: datetime.datetime, moving: bool) -> xr.Dataset:
+    """Add a time coordinate to an xarray Dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Input dataset (typically a single time-slice read from file).
+    date : datetime
+        The timestamp to assign as the time coordinate.
+    moving : bool
+        If ``True``, promote ``lat``/``lon`` from coordinates to data
+        variables so they can vary with time (required for moving grids).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with a new ``time`` dimension of length 1.
+    """
     # Inject a new time coordinate
     ds = ds.expand_dims(time=[date])  # Make sure time has length 1
 
@@ -942,8 +1137,25 @@ def add_time_coord(ds, date, moving):
     return ds
 
 
-def get_buffered_slice(coord_array, min_val, max_val, buffer=2):
-    """Return slice with buffer of N cells around given value range."""
+def get_buffered_slice(coord_array: np.ndarray, min_val: float, max_val: float, buffer: int = 2) -> slice:
+    """Return a coordinate slice with a cell buffer around the given value range.
+
+    Parameters
+    ----------
+    coord_array : np.ndarray
+        Sorted 1-D coordinate array.
+    min_val : float
+        Lower bound of the desired range.
+    max_val : float
+        Upper bound of the desired range.
+    buffer : int, optional
+        Number of extra cells to include on each side.  Default ``2``.
+
+    Returns
+    -------
+    slice
+        A ``slice`` object using coordinate values (not integer indices).
+    """
     idx_min = max(np.searchsorted(coord_array, min_val) - buffer, 0)
     idx_max = min(
         np.searchsorted(coord_array, max_val, side="right") + buffer,

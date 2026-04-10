@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+"""COAMPS-TC forecast dataset downloaded from the public AWS S3 bucket."""
+
 import datetime
 import os
 import tarfile as trf
@@ -11,15 +12,35 @@ from .dataset import MeteoDataset
 
 
 class MeteoSubset:
-    def __init__(self, name, moving):
+    """Container for a single spatial subset (nesting level) of a COAMPS-TC forecast.
+
+    Parameters
+    ----------
+    name : str
+        Subset identifier (e.g. ``"d01"``, ``"d02"``).
+    moving : bool
+        ``True`` if the grid moves with the storm track.
+    """
+
+    def __init__(self, name: str, moving: bool) -> None:
         self.name = name
         self.moving = moving
         self.ds = xr.Dataset()
 
 
 class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
-    # Inherit from MeteoDomain
-    def __init__(self, **kwargs):
+    """COAMPS-TC tropical-cyclone forecast dataset sourced from AWS S3.
+
+    Inherits from :class:`MeteoDataset`.  Three nested domains (``d01``–
+    ``d03``) are registered as subsets.
+
+    Parameters
+    ----------
+    **kwargs
+        Forwarded to :class:`MeteoDataset`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Set some source information
@@ -35,8 +56,25 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         self.subset.append(MeteoSubset("d02", True))
         self.subset.append(MeteoSubset("d03", True))
 
-    def download_forecast_cycle(self, **kwargs):
-        """Downloads COAMPS-TC forecast cycle from S3 for a given storm number and cycle time"""
+    def download_forecast_cycle(self, **kwargs) -> None:
+        """Download a COAMPS-TC forecast cycle from the AWS S3 bucket.
+
+        Parameters
+        ----------
+        **kwargs
+            Required keys:
+
+            ``cycle_time`` : datetime
+                Forecast initialisation time.
+            ``storm_number`` : str
+                Storm identifier used in the S3 path (e.g. ``"AL052023"``).
+
+            Optional keys:
+
+            ``only_track`` : bool
+                If ``True``, only download the storm track file and skip the
+                gridded forecast.  Default ``False``.
+        """
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]
@@ -86,20 +124,12 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         )  # Temporary folder to store the tar file
         os.makedirs(tar_file_path, exist_ok=True)
 
-        tar_file_name = storm_number + "_" + cycle_time_coamps + "_netcdf.tar"
+        tar_file_name = f"{storm_number}_{cycle_time_coamps}_netcdf.tar"
 
         tar_file_full_path = os.path.join(tar_file_path, tar_file_name)
 
         url = (
-            base_url
-            + "/"
-            + str(year)
-            + "/"
-            + storm_number
-            + "/"
-            + cycle_time_coamps
-            + "/"
-            + tar_file_name
+            f"{base_url}/{year}/{storm_number}/{cycle_time_coamps}/{tar_file_name}"
         )
 
         # Download the tar file
@@ -124,7 +154,7 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
             res = subset.name
             # Get list of all the files in the _TMP/netcdf folder
             file_list = fo.list_files(
-                os.path.join(tar_file_path, "netcdf", "*_" + res + "_*")
+                os.path.join(tar_file_path, "netcdf", f"*_{res}_*")
             )
             for file_name in file_list:
                 # Read tau from file name
@@ -132,7 +162,7 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
                 t = cycle_time + datetime.timedelta(hours=int(tau))
                 tstr = t.strftime("%Y%m%d_%H%M")
                 output_file = os.path.join(
-                    forecast_path, self.name + "." + res + "." + tstr + ".nc"
+                    forecast_path, f"{self.name}.{res}.{tstr}.nc"
                 )
                 convert_coamps_nc_to_meteo_nc(file_name, output_file)
 
@@ -140,7 +170,16 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         fo.delete_folder(tar_file_path)
 
 
-def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
+def convert_coamps_nc_to_meteo_nc(inpfile: str, outfile: str) -> None:
+    """Convert a raw COAMPS-TC netCDF file to the standard meteo netCDF format.
+
+    Parameters
+    ----------
+    inpfile : str
+        Path to the input COAMPS-TC netCDF file.
+    outfile : str
+        Path for the output meteo-format netCDF file.
+    """
     # Open the COAMPS-TC netcdf file
     with xr.open_dataset(inpfile) as dsin:
         # Get the lon and lat
@@ -155,7 +194,6 @@ def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
         # Add the variables
         variables_coamps = ["uuwind", "vvwind", "slpres", "precip"]
         variables = ["wind_u", "wind_v", "barometric_pressure", "precipitation"]
-        # units = ["m/s", "m/s", "hPa", "mm"]
         units = ["m/s", "m/s", "Pa", "mm/h"]
         for ivar, var in enumerate(variables_coamps):
             # Conversion factors
@@ -170,18 +208,19 @@ def convert_coamps_nc_to_meteo_nc(inpfile, outfile):
         ds.to_netcdf(outfile)
 
 
-def get_storm_track(track_path: str, year: int, storm: str, cycle: str):
-    """
-    Retrieves the storm track data for a given year, storm, and cycle.
+def get_storm_track(track_path: str, year: int, storm: str, cycle: str) -> None:
+    """Download the COAMPS-TC storm track file from the AWS S3 bucket.
 
-    Parameters:
-    year (int): The year of the storm track data.
-    storm (str): The name of the storm.
-    cycle (str): The cycle of the storm track data.
-
-    Returns:
-    bytes: The content of the storm track data.
-
+    Parameters
+    ----------
+    track_path : str
+        Local directory where the track file will be saved.
+    year : int
+        Year of the storm.
+    storm : str
+        Storm identifier (e.g. ``"AL052023"``).
+    cycle : str
+        Cycle time string in ``YYYYMMDDHH`` format.
     """
     try:
         filename = os.path.join(track_path, f"TRK_COAMPS_CTCX_3_{cycle}_{storm}.trk")

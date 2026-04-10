@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May 20 10:32:33 2021
-
-@author: ormondt
-"""
+"""GFS 0.25-degree global forecast dataset via the UCAR THREDDS server."""
 
 import datetime
 import os
@@ -18,8 +13,18 @@ from .dataset import MeteoDataset
 
 
 class MeteoDatasetGFSForecast0p25(MeteoDataset):
-    # Inherit from MeteoDomain
-    def __init__(self, **kwargs):
+    """GFS 0.25-degree global forecast dataset.
+
+    Accesses the NCEP GFS forecast via the UCAR Thredds Data Server using
+    ``siphon``.
+
+    Parameters
+    ----------
+    **kwargs
+        Forwarded to :class:`MeteoDataset`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Set some source information
@@ -29,8 +34,23 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
         self.source_cycle_interval = 6
         self.source_time_interval = 3
 
-    def download_forecast_cycle(self, **kwargs):
-        """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
+    def download_forecast_cycle(self, **kwargs) -> None:
+        """Download a single GFS forecast cycle via the UCAR THREDDS server.
+
+        Parameters
+        ----------
+        **kwargs
+            Required keys:
+
+            ``cycle_time`` : datetime
+                Forecast initialisation time.
+
+            Optional keys:
+
+            ``time_range`` : list of datetime
+                ``[start, end]`` window for which data is needed.  Defaults to
+                the full forecast duration defined on the dataset.
+        """
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]
@@ -62,7 +82,7 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
         base_url = (
             "https://thredds.ucar.edu/thredds/catalog/grib/NCEP/GFS/Global_0p25deg/"
         )
-        url = base_url + "GFS_Global_0p25deg_" + cycle_string + ".grib2/catalog.xml"
+        url = f"{base_url}GFS_Global_0p25deg_{cycle_string}.grib2/catalog.xml"
         url = "https://thredds.ucar.edu/thredds/catalog/grib/NCEP/GFS/Global_0p25deg/catalog.xml?dataset=grib/NCEP/GFS/Global_0p25deg/Best"
         # TODO right now the url is replaced to use the best (where we don't know the cycle used)
         # TODO what about using S3 bucket (e.g. https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html#gfs.20240627/)
@@ -88,8 +108,6 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
         # Loop through requested parameters
         for param in param_list:
             if param == "wind":
-                # dataset.quantity = param
-
                 query = ncss.query()
                 query.lonlat_box(
                     north=self.lat_range[1],
@@ -106,8 +124,6 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     lat = np.array(ds0["latitude"])
                     lat = np.flip(lat)
 
-                    # We keep lon from 0 to 360!
-                    # ds["lon"] = np.array(ds0["longitude"]) - 360.0
                     ds["lon"] = np.array(ds0["longitude"])
                     ds["lat"] = lat
 
@@ -138,7 +154,6 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                         ),
                         dims=("time", "lat", "lon"),
                     )
-                    # Plot first time of wind_u
                     ds["wind_v"] = xr.DataArray(
                         np.flip(
                             np.squeeze(
@@ -173,8 +188,6 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
                     # Check if lon, lat and time are already in the dataset
                     if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                        # We keep lon from 0 to 360!
-                        # ds["lon"] = np.array(ds0["longitude"]) - 360.0
                         ds["lon"] = np.array(ds0["longitude"])
                         lat = np.array(ds0["latitude"])
                         lat = np.flip(lat)
@@ -210,12 +223,23 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
         self.ds = ds
 
 
-def write2nc(ds, meteo_name, meteo_path):
+def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:
+    """Write one netCDF file per time step in the dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing a ``time`` dimension.
+    meteo_name : str
+        Dataset name used as the file-name prefix.
+    meteo_path : str
+        Output directory.
+    """
     # Loop though times in ds
     times = ds["time"].to_numpy()
     for it, t in enumerate(times):
         time_string = pd.to_datetime(t).strftime("%Y%m%d_%H%M")
-        file_name = meteo_name + "." + time_string + ".nc"
+        file_name = f"{meteo_name}.{time_string}.nc"
         full_file_name = os.path.join(meteo_path, file_name)
         ds_time = ds.isel(time=it)
         # Remove time and reftime
