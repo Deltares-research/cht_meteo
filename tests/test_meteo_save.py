@@ -25,6 +25,8 @@ def test_save_netcdf(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
     if dataset_fixture == "gfs_anl_dataset":
         dataset.collect(time_range)
+        if not dataset.ds.data_vars:
+            pytest.skip("No GFS data (external server unavailable)")
     elif dataset_fixture == "gfs_fc_dataset":
         dataset.collect(time_range_now)
     temp_dir = Path(tempfile.gettempdir()) / "save_netcdf"
@@ -46,6 +48,8 @@ def test_save_delft3d(request, dataset_fixture, time_range, time_range_now):
     dataset = request.getfixturevalue(dataset_fixture)
     if dataset_fixture == "gfs_anl_dataset":
         dataset.collect(time_range)
+        if not dataset.ds.data_vars:
+            pytest.skip("No GFS data (external server unavailable)")
     elif dataset_fixture == "gfs_fc_dataset":
         dataset.collect(time_range_now)
     temp_dir = Path(tempfile.gettempdir()) / "save_test_coamps_tc_data_delft3d"
