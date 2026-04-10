@@ -151,13 +151,9 @@ class MeteoDatasetCOAMPSTCForecastS3(MeteoDataset):
         for subset in self.subset:
             res = subset.name
             # Get list of all the files in the _TMP/netcdf folder
-            # file_list = fo.list_files(
-            #    os.path.join(tar_file_path, "netcdf", f"*_{res}_*")
-            # )
             file_list = fo.list_files(
                 os.path.join(tar_file_path, "netcdf"),
                 pattern=f"*_{res}_*",
-                full_path=False,
             )
 
             for file_name in file_list:

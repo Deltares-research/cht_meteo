@@ -421,7 +421,7 @@ class MeteoDataset:
 
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(
-                        cycle_path, pattern=f"*{subsetstr}*.nc", full_path=True
+                        cycle_path, pattern=f"*{subsetstr}*.nc"
                     )
 
                     icycle += 1
