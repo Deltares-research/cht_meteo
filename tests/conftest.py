@@ -7,6 +7,13 @@ import pytest
 
 import cht_meteo
 
+try:
+    import dask  # noqa: F401
+
+    HAS_DASK = True
+except ImportError:
+    HAS_DASK = False
+
 
 @pytest.fixture(scope="session")
 def lon_range():
@@ -83,6 +90,8 @@ def gfs_fc_dataset(request, lon_range, lat_range, time_range_now):
 
 @pytest.fixture(scope="session")
 def coamps_tc_dataset(request, lon_range, lat_range, time_range):
+    if not HAS_DASK:
+        pytest.skip("dask not installed")
     temp_dir = Path(tempfile.gettempdir()) / "coamps_tc_data"
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
