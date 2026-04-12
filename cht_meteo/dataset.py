@@ -483,7 +483,7 @@ class MeteoDataset:
                 for f, t in zip(file_list, time_list)
             ]
 
-            ds = xr.concat(datasets, dim="time")
+            ds = xr.concat(datasets, dim="time", coords="minimal")
 
             # add physically logical fill values to the variables
             # NOTE is this needed here, also happens when writing it seems?
