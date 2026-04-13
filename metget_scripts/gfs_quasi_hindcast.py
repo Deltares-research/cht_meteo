@@ -118,7 +118,7 @@ def download(
             tau = source.split(".")[-1].split("f")[-1]
             # get cycle info
             cycle_used = time_i - datetime.timedelta(hours=int(tau))
-            dataset.source.append(f'gfs_{cycle_used.strftime("%Y%m%d%H")}z_{tau}')
+            dataset.source.append(f"gfs_{cycle_used.strftime('%Y%m%d%H')}z_{tau}")
 
         # Get metadata of input used
         dataset.config = metadata[metget.meteo_variables[param].metget_name]["input"]

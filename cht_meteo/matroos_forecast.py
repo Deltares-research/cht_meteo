@@ -1,3 +1,5 @@
+"""KNMI Harmonie forecast dataset from the Matroos THREDDS service."""
+
 import datetime
 import os
 
@@ -9,8 +11,18 @@ from .dataset import MeteoDataset
 
 
 class MeteoDatasetMatroos(MeteoDataset):
-    # Inherit from MeteoDomain
-    def __init__(self, **kwargs):
+    """KNMI Harmonie forecast dataset served by Deltares Matroos.
+
+    Downloads wind, pressure and precipitation via the Matroos OPeNDAP
+    THREDDS catalogue.
+
+    Parameters
+    ----------
+    **kwargs
+        Forwarded to :class:`MeteoDataset`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Set some source information
@@ -23,8 +35,29 @@ class MeteoDatasetMatroos(MeteoDataset):
         self.source_time_interval = 1
         self.source_forecast_duration = 60
 
-    def download_forecast_cycle(self, **kwargs):
-        """Downloads Matroos forecast cycle for a given storm number and cycle time"""
+    def download_forecast_cycle(self, **kwargs) -> None:
+        """Download a single Matroos forecast cycle.
+
+        Parameters
+        ----------
+        **kwargs
+            Required keys:
+
+            ``cycle_time`` : datetime
+                Forecast initialisation time.
+
+            Optional keys:
+
+            ``time_range`` : list of datetime
+                ``[start, end]`` window for which data is needed.  Defaults to
+                the full forecast duration defined on the dataset.
+
+        Raises
+        ------
+        ValueError
+            If the requested cycle time is earlier than the earliest available
+            cycle in the Matroos catalogue.
+        """
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]
@@ -54,7 +87,7 @@ class MeteoDatasetMatroos(MeteoDataset):
 
         # We assume that the best uses the latest
         url = "https://rwsos-dataservices-prod.avi.deltares.nl//thredds//catalog//data_matroos//maps//normal//knmi_harmonie43"
-        catalog_xml = url + "//" + "catalog.xml"
+        catalog_xml = f"{url}//catalog.xml"
         catalog = TDSCatalog(catalog_xml)
 
         # If we request times earlier than the earliest available cycle the earliest has been used
@@ -65,9 +98,7 @@ class MeteoDatasetMatroos(MeteoDataset):
         ).replace(tzinfo=datetime.timezone.utc)
         if time_range[0] < first_cycle_time:
             raise ValueError(
-                "Matroos data not available for times earlier than {}".format(
-                    first_cycle_time.strftime("%Y%m%d_%H%M")
-                )
+                f"Matroos data not available for times earlier than {first_cycle_time.strftime('%Y%m%d_%H%M')}"
             )
 
         # If we request times later than the latest available cycle the latest has been used
@@ -79,14 +110,12 @@ class MeteoDatasetMatroos(MeteoDataset):
         if time_range[0] > latest_cycle_time:
             cycle_time = latest_cycle_time
             print(
-                "Warning: Matroos data not available for times later than {}, using latest available cycle".format(
-                    latest_cycle_time.strftime("%Y%m%d_%H%M")
-                )
+                f"Warning: Matroos data not available for times later than {latest_cycle_time.strftime('%Y%m%d_%H%M')}, using latest available cycle"
             )
 
         # now get the actual cycle
         matroos_cycle_string = cycle_time.strftime("%Y%m%d%H%M")
-        access_url = catalog.datasets[matroos_cycle_string + ".nc"].access_urls[
+        access_url = catalog.datasets[f"{matroos_cycle_string}.nc"].access_urls[
             "OPENDAP"
         ]
         ds = xr.open_dataset(access_url)
@@ -131,12 +160,23 @@ class MeteoDatasetMatroos(MeteoDataset):
         ds.close()
 
 
-def write2nc(ds, meteo_name, meteo_path):
+def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:
+    """Write one netCDF file per time step in the dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing a ``time`` dimension.
+    meteo_name : str
+        Dataset name used as the file-name prefix.
+    meteo_path : str
+        Output directory.
+    """
     # Loop though times in ds
     times = ds["time"].to_numpy()
     for it, t in enumerate(times):
         time_string = pd.to_datetime(t).strftime("%Y%m%d_%H%M")
-        file_name = meteo_name + "." + time_string + ".nc"
+        file_name = f"{meteo_name}.{time_string}.nc"
         full_file_name = os.path.join(meteo_path, file_name)
         ds_time = ds.isel(time=it)
         # Remove time and reftime

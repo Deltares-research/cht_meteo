@@ -1,18 +1,28 @@
+"""ECMWF open-data IFS forecast dataset at 0.25-degree resolution."""
+
 import os
 import shutil
 
 import pandas as pd
 import xarray as xr
 from ecmwf.opendata import Client
-from tqdm import tqdm
-import cfgrib 
 
 from .dataset import MeteoDataset
 
 
 class MeteoDatasetECMWFForecast0p25(MeteoDataset):
-    # Inherit from MeteoDomain
-    def __init__(self, **kwargs):
+    """ECMWF IFS open-data forecast at 0.25-degree resolution.
+
+    Downloads wind, mean-sea-level pressure and precipitation from the ECMWF
+    open-data service using the ``ecmwf-opendata`` Python client.
+
+    Parameters
+    ----------
+    **kwargs
+        Forwarded to :class:`MeteoDataset`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Set some source information
@@ -22,8 +32,17 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         self.source_cycle_interval = 6
         self.source_time_interval = 3
 
-    def download_forecast_cycle(self, **kwargs):
-        """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
+    def download_forecast_cycle(self, **kwargs) -> None:
+        """Download a single ECMWF IFS forecast cycle.
+
+        Parameters
+        ----------
+        **kwargs
+            Required keys:
+
+            ``cycle_time`` : datetime
+                Forecast initialisation time.
+        """
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]
@@ -31,15 +50,6 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
             # Throw error if cycle_time is not provided
             print("Error: cycle_time not provided")
             return
-
-        # if "time_range" in kwargs:
-        #     time_range = kwargs["time_range"]
-        # else:
-        #     # Get all data from this cycle
-        #     time_range = [
-        #         cycle_time,
-        #         cycle_time + datetime.timedelta(hours=self.source_forecast_duration),
-        #     ]
 
         cycle_name = cycle_time.strftime("%Y%m%d_%Hz")
 
@@ -81,9 +91,6 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         lon_lim = self.lon_range  # degrees east
         lat_lim = self.lat_range  # degrees north
 
-        # For global data: set both to None
-        # lon_lim = None; lat_lim = None
-
         os.makedirs(output_dir, exist_ok=True)
 
         # =============================================================
@@ -92,27 +99,10 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
         client = Client(source="ecmwf", model="ifs")
 
-        date = cycle_time.strftime("%Y-%m-%d")  # "2025-10-07"
-        time = cycle_time.strftime("%H:%M")  # 18:00
+        date = cycle_time.strftime("%Y-%m-%d")
+        time = cycle_time.strftime("%H:%M")
 
         print(f"Downloading ECMWF open forecast: {date} {time} UTC")
-
-        # for var in variables:
-        #     for step in tqdm(forecast_hours, desc=f"Downloading {var}"):
-        #         target = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
-        #         if not os.path.exists(target):
-        #             try:
-        #                 client.retrieve(
-        #                     date=date,
-        #                     time=cycle_time.hour,
-        #                     step=step,
-        #                     param=var,
-        #                     stream="oper",
-        #                     type="fc",
-        #                     target=target,
-        #                 )
-        #             except Exception as e:
-        #                 print(f"⚠️ Failed to get {var} +{step}h: {e}")
 
         for var in variables:
             print(f"Downloading {var}")
@@ -129,35 +119,15 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
                         target=target,
                     )
                 except Exception as e:
-                    print(f"⚠️ Failed to get {var}: {e}")
+                    print(f"Failed to get {var}: {e}")
 
-        print("✅ All downloads completed.")
+        print("All downloads completed.")
 
         # =============================================================
         # LOAD, CLIP, AND MERGE DATASETS
         # =============================================================
 
         datasets = []
-
-        # for var in variables:
-        #     var_datasets = []
-        #     for step in forecast_hours:
-        #         file = os.path.join(output_dir, f"{var}_step{step:03d}.grib2")
-        #         if os.path.exists(file):
-        #             ds = xr.open_dataset(file, engine="cfgrib")
-        #             ds = ds.assign_coords(step=step)
-
-        #             # Clip to requested region (after load)
-        #             if lon_lim is not None and lat_lim is not None:
-        #                 ds = ds.sel(
-        #                     latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
-        #                     longitude=slice(lon_lim[0], lon_lim[1]),
-        #                 )
-
-        #             var_datasets.append(ds)
-
-        #     if var_datasets:
-        #         datasets.append(xr.concat(var_datasets, dim="step"))
 
         for var in variables:
             var_datasets = []
@@ -174,7 +144,6 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
 
             if var_datasets:
                 datasets.append(xr.concat(var_datasets, dim="step"))
-
 
         # Merge variables
         ds_merged = xr.merge(datasets)
@@ -210,8 +179,6 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
             # Replace any nans in ds_merged["rain_rate"] with zeros (no rain)
             ds_merged["rain_rate"] = ds_merged["rain_rate"].fillna(0.0)
 
-        # print("✅ Computed rainfall rates (mm/h).")
-
         # Change variable names to more standard ones
         # Rename latitude and longitude to lat and lon
         ds_merged = ds_merged.rename({"latitude": "lat", "longitude": "lon"})
@@ -224,7 +191,7 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         ds_merged = ds_merged.rename(rename_dict)
 
         # Remove "time" (this is the cycle time, not the forecast time) and rename "valid_time" to "time"
-        # Also remove step, as it has an attribute "dtype" 
+        # Also remove step, as it has an attribute "dtype"
         ds_merged = ds_merged.drop_vars(["time", "step"], errors="ignore")
         ds_merged = ds_merged.rename({"valid_time": "time"})
 
@@ -248,12 +215,23 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
         shutil.rmtree(output_dir, ignore_errors=True)
 
 
-def write2nc(ds, meteo_name, meteo_path):
+def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:
+    """Write one netCDF file per time step in the dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing a ``time`` dimension.
+    meteo_name : str
+        Dataset name used as the file-name prefix.
+    meteo_path : str
+        Output directory.
+    """
     # Loop though times in ds and save each to a separate netcdf file
     times = ds["time"].to_numpy()
     for it, t in enumerate(times):
         time_string = pd.to_datetime(t).strftime("%Y%m%d_%H%M")
-        file_name = meteo_name + "." + time_string + ".nc"
+        file_name = f"{meteo_name}.{time_string}.nc"
         full_file_name = os.path.join(meteo_path, file_name)
         ds_time = ds.isel(time=it)
         # Remove time and reftime

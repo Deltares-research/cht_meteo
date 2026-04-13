@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May 20 10:32:33 2021
-
-@author: ormondt
-"""
+"""GFS 0.25-degree forecast dataset accessed from the NCAR RDA archive via OPeNDAP."""
 
 import os
 
@@ -15,8 +10,18 @@ from .dataset import MeteoDataset
 
 
 class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
-    # Inherit from MeteoDomain
-    def __init__(self, **kwargs):
+    """GFS 0.25-degree forecast dataset from the NCAR Research Data Archive.
+
+    Accesses GFS GRIB2 files directly via OPeNDAP from the NCAR RDA
+    (dataset d084001).
+
+    Parameters
+    ----------
+    **kwargs
+        Forwarded to :class:`MeteoDataset`.
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Set some source information
@@ -26,8 +31,17 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
         self.source_cycle_interval = 6
         self.source_time_interval = 3
 
-    def download_forecast_cycle(self, **kwargs):
-        """Downloads COAMPS-TC forecast cycle for a given storm number and cycle time"""
+    def download_forecast_cycle(self, **kwargs) -> None:
+        """Download a single GFS forecast cycle from the NCAR RDA archive.
+
+        Parameters
+        ----------
+        **kwargs
+            Required keys:
+
+            ``cycle_time`` : datetime
+                Forecast initialisation time.
+        """
 
         if "cycle_time" in kwargs:
             cycle_time = kwargs["cycle_time"]
@@ -35,15 +49,6 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             # Throw error if cycle_time is not provided
             print("Error: cycle_time not provided")
             return
-
-        # if "time_range" in kwargs:
-        #     time_range = kwargs["time_range"]
-        # else:
-        #     # Get all data from this cycle
-        #     time_range = [
-        #         cycle_time,
-        #         cycle_time + datetime.timedelta(hours=self.source_forecast_duration),
-        #     ]
 
         lon0 = self.lon_range[0]
         lon1 = self.lon_range[1]
@@ -69,8 +74,6 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
         base_url = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d084001"
         base_url += f"/{cycle_year_string}/{cycle_day_string}"
 
-        url = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d084001/2024/20240927/gfs.0p25.2024092700.f000.grib2"
-
         # Loop through forecast times
         # Get time at 0, 3, 6, 9, 12, 15, 18, 21, 24 hours
         forecast_hours = np.arange(0, 25, 3).tolist()
@@ -78,10 +81,8 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
         # Loop through forecast hours
 
         for forecast_hour in forecast_hours:
-            # print(f"Downloading forecast hour {forecast_hour} of cycle {cycle_name}")
-
             # Create the URL for the forecast time
-            url = base_url + f"/gfs.0p25.{cycle_string}.f{forecast_hour:03d}.grib2"
+            url = f"{base_url}/gfs.0p25.{cycle_string}.f{forecast_hour:03d}.grib2"
 
             ds0 = xr.open_dataset(url)
 
@@ -181,12 +182,23 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             self.ds = ds
 
 
-def write2nc(ds, meteo_name, meteo_path):
+def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:
+    """Write one netCDF file per time step in the dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing a ``time`` dimension.
+    meteo_name : str
+        Dataset name used as the file-name prefix.
+    meteo_path : str
+        Output directory.
+    """
     # Loop though times in ds
     times = ds["time"].to_numpy()
     for it, t in enumerate(times):
         time_string = pd.to_datetime(t).strftime("%Y%m%d_%H%M")
-        file_name = meteo_name + "." + time_string + ".nc"
+        file_name = f"{meteo_name}.{time_string}.nc"
         full_file_name = os.path.join(meteo_path, file_name)
         ds_time = ds.isel(time=it)
         ds_time.to_netcdf(path=full_file_name)

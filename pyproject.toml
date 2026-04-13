@@ -31,7 +31,7 @@ dependencies = [
 	"tqdm",
 	"ecmwf-opendata",
 	"cfgrib",
-    "cht_utils"]
+    "cht_utils@ git+https://github.com/deltares-research/cht_utils.git"]
 
 dynamic = ["version"]
 

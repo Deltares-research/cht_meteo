@@ -1,9 +1,36 @@
+"""Export wind data from a MeteoDataset to a JSON format for web visualisation."""
+
 import json
 
 import numpy as np
 
 
-def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
+def write_wind_to_json(
+    dataset,
+    file_name: str,
+    time_range: list | None = None,
+    iref: int = 1,
+    js: bool = False,
+) -> None:
+    """Write wind components to a JSON file compatible with wind-visualisation libraries.
+
+    The output follows the GFS/GRIB2-style JSON schema used by, for example,
+    the ``earth`` and ``wind-js`` web tools.
+
+    Parameters
+    ----------
+    dataset : MeteoDataset
+        Source dataset containing ``wind_u`` and ``wind_v`` variables.
+    file_name : str
+        Path of the output JSON (or ``.js``) file.
+    time_range : list of datetime, optional
+        ``[start, end]`` filter.  Defaults to the full dataset extent.
+    iref : int, optional
+        Reference index (currently unused, reserved for future use).
+    js : bool, optional
+        When ``True``, prepend ``wind = `` so the file can be loaded as a
+        JavaScript module.
+    """
     # Convert numpy.datetime64 to datetime
     time = dataset.ds.time.to_numpy().astype("M8[s]").astype("O")
     x = dataset.ds.lon.to_numpy()
@@ -117,8 +144,7 @@ def write_wind_to_json(dataset, file_name, time_range=None, iref=1, js=False):
             data.append(dd)
 
     json_string = json.dumps(data, separators=(",", ":"))
-    fid = open(file_name, "w")
-    if js:
-        fid.write("wind = ")
-    fid.write(json_string)
-    fid.close()
+    with open(file_name, "w") as fid:
+        if js:
+            fid.write("wind = ")
+        fid.write(json_string)
