@@ -4,21 +4,25 @@ channels:
   - conda-forge
 
 dependencies:
-  - black
-  - build
-  - mypy
-  - pip
+  - python=3.10
   - numpy
   - scipy
-  - siphon
+  - pandas
   - xarray
   - pyproj
   - metpy
-  - pandas
-  - pytest
-  - toml
-  - tomli
+  - siphon
   - netCDF4
-  - cht_utils
+
+  # Development tools
+  - black
+  - mypy
+  - pytest
   - pre_commit
-  - python=3.10
+  - python-build     # ← conda name, not "build"
+  - pip
+
+  # Pip-only packages
+  - pip:
+      - cht_utils
+
