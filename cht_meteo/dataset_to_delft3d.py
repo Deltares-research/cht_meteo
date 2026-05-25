@@ -360,7 +360,16 @@ def write_to_delft3d_netcdf(
                 ds[ncvar].attrs["units"] = file["unit"]
                 ds[ncvar].attrs["long_name"] = davar.replace("_", " ").capitalize()
             else:
-                print(f"Warning: {davar} not found in dataset. Skipping {ncvar}.")
+                # If the variable is missing, create an array of zeros with the correct shape and add a warning
+                ds[ncvar] = xr.DataArray(
+                    np.zeros((len(time), len(y), len(x))), dims=["time", "y", "x"]
+                )
+                if davar == "barometric_pressure":
+                    ds[ncvar].values[:] = 101300.0
+                ds[ncvar].attrs["units"] = file["unit"]
+                ds[ncvar].attrs["long_name"] = davar.replace("_", " ").capitalize()
+
+                print(f"Warning: {davar} not found in dataset.")
 
         # Add attributes
         ds.attrs["description"] = "SFINCS meteo forcing"

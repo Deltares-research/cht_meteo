@@ -121,7 +121,7 @@ def write_wind_to_json(
 
             u_list = (
                 np.flipud(
-                    np.around(dataset.ds["wind_u"].to_numpy()[it, :, :], decimals=1)
+                    np.rint(dataset.ds["wind_u"].to_numpy()[it, :, :]).astype(np.int16)
                 )
                 .flatten()
                 .tolist()
@@ -132,7 +132,7 @@ def write_wind_to_json(
 
             v_list = (
                 np.flipud(
-                    np.around(dataset.ds["wind_v"].to_numpy()[it, :, :], decimals=1)
+                    np.rint(dataset.ds["wind_v"].to_numpy()[it, :, :]).astype(np.int16)
                 )
                 .flatten()
                 .tolist()
