@@ -753,20 +753,21 @@ class MeteoDataset:
             # load the dataset for faster writing
             dataset.ds.load()
 
-            # Fill nans
-            fill_values = {
-                "wind_u": 0.0,
-                "wind_v": 0.0,
-                "precipitation": 0.0,
-                "barometric_pressure": 101300.0,
-            }
+        # Remove data arrays that are all nan
+        dataset.ds = dataset.ds.drop_vars(
+            [v for v in dataset.ds.data_vars if dataset.ds[v].isnull().all().item()]
+        )
 
-            # Loop over the dictionary and apply fill values where needed
-            for var, fill_value in fill_values.items():
-                if var in dataset.ds:
-                    dataset.ds[var] = dataset.ds[var].where(
-                        ~np.isnan(dataset.ds[var]), other=fill_value
-                    )
+        # Fill nans in the dataset with physical values (e.g. 0 m/s for wind, 0 mm/h for precipitation, 101300 Pa for pressure)
+        fill_values = {
+            "wind_u": 0.0,
+            "wind_v": 0.0,
+            "precipitation": 0.0,
+            "barometric_pressure": 101300.0,
+        }
+        dataset.ds = dataset.ds.fillna(
+            {k: v for k, v in fill_values.items() if k in dataset.ds.data_vars}
+        )
 
         return dataset
 
