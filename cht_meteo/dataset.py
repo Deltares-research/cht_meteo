@@ -345,7 +345,11 @@ class MeteoDataset:
         time_range : list of datetime
             ``[start, end]`` time interval to collect.
         **kwargs
-            Optional keys: ``tau`` (int, hours), ``last_cycle`` (datetime).
+            Optional keys: ``tau`` (int, hours), ``last_cycle`` (datetime),
+            ``subfolder`` (str). When ``subfolder`` is set, the netCDF files
+            are read from ``<cycle>/<subfolder>/`` instead of the cycle root.
+            Used for per-ensemble-member meteo datasets where each member's
+            grids live in a sibling subdirectory (e.g. ``20251102_00z/10_ens/``).
 
         Returns
         -------
@@ -365,6 +369,9 @@ class MeteoDataset:
                 last_cycle_time = kwargs["last_cycle"]
                 # FIXME make timezone naive
                 last_cycle_time = last_cycle_time.replace(tzinfo=None)
+
+        # Optional per-member subfolder under each cycle dir (see docstring).
+        member_subfolder = kwargs.get("subfolder")
 
         # Subsets are only used when there are subsets with different resolutions (e.g. as in COAMPS-TC)
         if len(self.subset) > 0:
@@ -419,9 +426,17 @@ class MeteoDataset:
                     self.last_forecast_cycle_time = t_cycle
                     self.last_analysis_time = t_cycle
 
+                    # For per-member ensemble datasets, descend into the
+                    # member subfolder (keep `cycle_path` for the time-parse).
+                    search_path = (
+                        os.path.join(cycle_path, member_subfolder)
+                        if member_subfolder
+                        else cycle_path
+                    )
+
                     # Find all times available in this cycle as it may contain our data
                     files_in_cycle = fo.list_files(
-                        cycle_path, pattern=f"*{subsetstr}*.nc"
+                        search_path, pattern=f"*{subsetstr}*.nc"
                     )
 
                     icycle += 1
