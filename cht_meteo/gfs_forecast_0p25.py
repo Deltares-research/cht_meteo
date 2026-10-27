@@ -9,7 +9,7 @@ import xarray as xr
 from siphon.catalog import TDSCatalog
 from xarray.backends import NetCDF4DataStore
 
-from .dataset import MeteoDataset
+from .dataset import MeteoDataset, normalize_lon_range
 
 
 class MeteoDatasetGFSForecast0p25(MeteoDataset):
@@ -103,6 +103,10 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
 
         param_list = ["wind", "barometric_pressure", "precipitation"]
 
+        # The server wraps the longitudes itself as long as east > west, so a
+        # range across the dateline such as [170, -170] is requested as [170, 190]
+        lon_range = normalize_lon_range(self.lon_range)
+
         ds = xr.Dataset()
 
         # Loop through requested parameters
@@ -112,8 +116,8 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 query.lonlat_box(
                     north=self.lat_range[1],
                     south=self.lat_range[0],
-                    east=self.lon_range[1],
-                    west=self.lon_range[0],
+                    east=lon_range[1],
+                    west=lon_range[0],
                 ).time_range(time_range[0], time_range[1]).vertical_level(10.0)
                 query.variables(
                     "u-component_of_wind_height_above_ground",
@@ -124,7 +128,9 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     lat = np.array(ds0["latitude"])
                     lat = np.flip(lat)
 
-                    ds["lon"] = np.array(ds0["longitude"])
+                    ds["lon"] = _to_requested_convention(
+                        np.array(ds0["longitude"]), lon_range[0]
+                    )
                     ds["lat"] = lat
 
                     if "time" in ds0:
@@ -180,15 +186,17 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 query.lonlat_box(
                     north=self.lat_range[1],
                     south=self.lat_range[0],
-                    west=self.lon_range[0],
-                    east=self.lon_range[1],
+                    west=lon_range[0],
+                    east=lon_range[1],
                 ).time_range(time_range[0], time_range[1])
                 query.variables(var_name)
                 ncss_data = ncss.get_data(query)
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
                     # Check if lon, lat and time are already in the dataset
                     if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                        ds["lon"] = np.array(ds0["longitude"])
+                        ds["lon"] = _to_requested_convention(
+                            np.array(ds0["longitude"]), lon_range[0]
+                        )
                         lat = np.array(ds0["latitude"])
                         lat = np.flip(lat)
                         ds["lat"] = lat
@@ -221,6 +229,27 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
         ds.close()
 
         self.ds = ds
+
+
+def _to_requested_convention(lon: np.ndarray, west: float) -> np.ndarray:
+    """Shift server longitudes by a multiple of 360 to match the requested range.
+
+    The THREDDS server returns longitudes counted from 0, e.g. 359 to 361 for a
+    request of -1 to 1. Shift them so that they start near *west*.
+
+    Parameters
+    ----------
+    lon : np.ndarray
+        Ascending longitudes as returned by the server.
+    west : float
+        Western longitude of the requested range.
+
+    Returns
+    -------
+    np.ndarray
+        Longitudes in the convention of the requested range.
+    """
+    return lon - 360.0 * np.round((lon[0] - west) / 360.0)
 
 
 def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:

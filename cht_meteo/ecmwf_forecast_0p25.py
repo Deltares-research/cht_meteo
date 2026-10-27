@@ -7,7 +7,7 @@ import pandas as pd
 import xarray as xr
 from ecmwf.opendata import Client
 
-from .dataset import MeteoDataset
+from .dataset import MeteoDataset, lon_window, normalize_lon_range
 
 
 class MeteoDatasetECMWFForecast0p25(MeteoDataset):
@@ -138,8 +138,13 @@ class MeteoDatasetECMWFForecast0p25(MeteoDataset):
                 if lon_lim is not None and lat_lim is not None:
                     ds = ds.sel(
                         latitude=slice(lat_lim[1], lat_lim[0]),  # north to south
-                        longitude=slice(lon_lim[0], lon_lim[1]),
                     )
+                    # The fields are global: cut out the longitudes continuously, so
+                    # that ranges across the dateline (e.g. [170, -170]) or in another
+                    # convention (e.g. [350, 370]) work as well
+                    west, east = normalize_lon_range(lon_lim)
+                    ds = ds.rename({"longitude": "lon"})
+                    ds = lon_window(ds, west, east).rename({"lon": "longitude"})
                 var_datasets.append(ds)
 
             if var_datasets:

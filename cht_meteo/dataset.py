@@ -616,6 +616,17 @@ class MeteoDataset:
         # 3) x_range and y_range are given, and dx and dy are given (cut-out and interpolate)
         # 4) x and y are given, but not x_range and y_range (cut-out and interpolate)
 
+        # Geographic data: make the longitudes continuous over the requested range,
+        # so that ranges west of Greenwich or across the dateline work in any
+        # longitude convention (e.g. [-10, 10], [170, -170] or [170, 190])
+        src = self
+        if self.crs.is_geographic and crs == self.crs:
+            if x_range is not None:
+                x_range = normalize_lon_range(x_range)
+                src = self._lon_windowed(x_range[0], x_range[1])
+            elif x is not None:
+                src = self._lon_windowed(np.min(x), np.max(x))
+
         # Option 1
         if (
             x_range is None
@@ -632,13 +643,13 @@ class MeteoDataset:
         # Option 2
         if x_range is not None and y_range is not None and dx is None and dy is None:
             # Cut-out only (but possible interpolation)
-            if crs != self.crs:
+            if crs != src.crs:
                 print(
                     "Error: cut-out with different CRS requires arrays x and y, or dx and dy in combination with x_range and y_range"
                 )
                 return
             # Get coordinates (in case of subsets, we take the largest (coarsest) subset)
-            x, y = self.get_coordinates(0)
+            x, y = src.get_coordinates(0)
             # Let's see if x and y are regularly spaced
             if np.min(np.diff(x)) == np.max(np.diff(x)) and np.min(
                 np.diff(y)
@@ -702,10 +713,10 @@ class MeteoDataset:
             # No need to do anything
             pass
 
-        if len(self.subset) > 0:
-            t = self.subset[0].ds["time"].to_numpy()
+        if len(src.subset) > 0:
+            t = src.subset[0].ds["time"].to_numpy()
         else:
-            t = self.ds["time"].to_numpy()
+            t = src.ds["time"].to_numpy()
 
         if time_range is not None:
             # convert values in time_range to np.datetime64
@@ -713,36 +724,42 @@ class MeteoDataset:
             t = t[(t >= time_range[0]) & (t <= time_range[1])]
 
         # Create new dataset
-        if len(self.subset) > 0 or crs != self.crs:
+        if len(src.subset) > 0 or crs != src.crs:
             dataset = MeteoDataset(name=name, x=x, y=y, time=t, crs=crs)
-            # make deepcopy of self to avoid modifying the original dataset and clip to new extent
-            self_clipped = copy.deepcopy(self)
+            # make deepcopy of src to avoid modifying the original dataset and clip to new extent
+            self_clipped = copy.deepcopy(src)
             # Transformer from new dataset to original dataset CRS
-            transformer = Transformer.from_crs(dataset.crs, self.crs, always_xy=True)
+            transformer = Transformer.from_crs(dataset.crs, src.crs, always_xy=True)
             xg, yg = np.meshgrid(x, y)
             xg_t, yg_t = transformer.transform(xg, yg)
-            if len(self.subset) > 0:
+            if src.crs.is_geographic:
+                # Smallest longitude range containing all points (may cross the dateline)
+                lon_west, lon_east = lon_extent(xg_t)
+            else:
+                lon_west, lon_east = xg_t.min(), xg_t.max()
+            if len(src.subset) > 0:
                 # Clip all datasets in the subsets
-                for isub in range(len(self.subset)):
+                for isub in range(len(src.subset)):
+                    ds_sub = src.subset[isub].ds
+                    if src.crs.is_geographic:
+                        ds_sub = lon_window(ds_sub, lon_west, lon_east)
                     lon_slice = get_buffered_slice(
-                        self.subset[isub].ds.lon.values, xg_t.min(), xg_t.max()
+                        ds_sub.lon.values, lon_west, lon_east
                     )
                     lat_slice = get_buffered_slice(
-                        self.subset[isub].ds.lat.values, yg_t.min(), yg_t.max()
+                        ds_sub.lat.values, yg_t.min(), yg_t.max()
                     )
-                    self_clipped.subset[isub].ds = (
-                        self_clipped.subset[isub]
-                        .ds.sel(
-                            lon=lon_slice,
-                            lat=lat_slice,
-                            time=slice(t[0], t[-1]),
-                        )
-                        .load()
-                    )
+                    self_clipped.subset[isub].ds = ds_sub.sel(
+                        lon=lon_slice,
+                        lat=lat_slice,
+                        time=slice(t[0], t[-1]),
+                    ).load()
             else:
                 # Clip the main dataset
+                if src.crs.is_geographic:
+                    self_clipped.ds = lon_window(self_clipped.ds, lon_west, lon_east)
                 lon_slice = get_buffered_slice(
-                    self_clipped.ds.lon.values, xg_t.min(), xg_t.max()
+                    self_clipped.ds.lon.values, lon_west, lon_east
                 )
                 lat_slice = get_buffered_slice(
                     self_clipped.ds.lat.values, yg_t.min(), yg_t.max()
@@ -754,7 +771,7 @@ class MeteoDataset:
                 ).load()
             dataset.interpolate_dataset(self_clipped)
         else:
-            dataset = copy.deepcopy(self)
+            dataset = copy.deepcopy(src)
             lon_slice = get_buffered_slice(dataset.ds.lon.values, x[0], x[-1])
             lat_slice = get_buffered_slice(dataset.ds.lat.values, y[0], y[-1])
             dataset.ds = dataset.ds.sel(
@@ -785,6 +802,34 @@ class MeteoDataset:
         )
 
         return dataset
+
+    def _lon_windowed(self, west: float, east: float) -> "MeteoDataset":
+        """Return a shallow copy whose longitudes are continuous over [west, east].
+
+        Applies :func:`lon_window` to the main dataset and to all subsets.
+
+        Parameters
+        ----------
+        west : float
+            Western longitude of the window.
+        east : float
+            Eastern longitude of the window (larger than *west*).
+
+        Returns
+        -------
+        MeteoDataset
+            Shallow copy with windowed datasets.
+        """
+        src = copy.copy(self)
+        if self.ds is not None and "lon" in self.ds.coords:
+            src.ds = lon_window(self.ds, west, east)
+        if len(self.subset) > 0:
+            src.subset = []
+            for sub in self.subset:
+                sub_copy = copy.copy(sub)
+                sub_copy.ds = lon_window(sub.ds, west, east)
+                src.subset.append(sub_copy)
+        return src
 
     def interpolate_dataset(
         self, dataset: "MeteoDataset", copy_time: bool = False
@@ -937,17 +982,28 @@ class MeteoDataset:
                 x = da["x"].to_numpy()
                 y = da["y"].to_numpy()
 
+            values = da.to_numpy()[:]
+            xs = xg
+            if self.crs.is_geographic:
+                if is_global_lon(x):
+                    # Close the seam between the last and the first longitude
+                    x = np.append(x, x[0] + 360.0)
+                    values = np.concatenate([values, values[:, :1]], axis=1)
+                # Express the target longitudes in the convention of this grid
+                # (e.g. -179.5 becomes 180.5 for a grid running from 0 to 360)
+                xs = np.mod(xg - x[0], 360.0) + x[0]
+
             # Make interpolator
-            interp = RegularGridInterpolator((y, x), da.to_numpy()[:])
+            interp = RegularGridInterpolator((y, x), values)
 
             # Find points outside of grid
             iout = np.where(
-                (xg < np.min(x))
-                | (xg > np.max(x))
+                (xs < np.min(x))
+                | (xs > np.max(x))
                 | (yg < np.min(y))
                 | (yg > np.max(y))
             )
-            x1 = np.maximum(xg, np.min(x))
+            x1 = np.maximum(xs, np.min(x))
             x1 = np.minimum(x1, np.max(x))
             y1 = np.maximum(yg, np.min(y))
             y1 = np.minimum(y1, np.max(y))
@@ -1190,3 +1246,125 @@ def get_buffered_slice(
         len(coord_array) - 1,
     )
     return slice(coord_array[idx_min], coord_array[idx_max])
+
+
+def normalize_lon_range(lon_range: list) -> list:
+    """Return ``[west, east]`` with *east* larger than *west*.
+
+    A range that crosses the dateline, such as ``[170, -170]``, becomes
+    ``[170, 190]``. The convention of *west* is kept, so ``[-10, 10]`` stays
+    ``[-10, 10]``.
+
+    Parameters
+    ----------
+    lon_range : list
+        ``[west, east]`` longitude bounds in degrees.
+
+    Returns
+    -------
+    list
+        ``[west, east]`` with ``east > west``.
+    """
+    west, east = float(lon_range[0]), float(lon_range[1])
+    if east < west:
+        east += 360.0
+    return [west, east]
+
+
+def lon_extent(lon: np.ndarray) -> list:
+    """Return the smallest ``[west, east]`` range containing all longitudes.
+
+    Handles points on both sides of the dateline: ``[-179.5, 179.5]`` gives
+    ``[179.5, 180.5]``. *west* is returned in the range [-180, 180).
+
+    Parameters
+    ----------
+    lon : np.ndarray
+        Longitudes in degrees (any shape, any convention).
+
+    Returns
+    -------
+    list
+        ``[west, east]`` with ``east >= west``.
+    """
+    lon = np.mod(np.ravel(lon), 360.0)
+    lon = np.sort(lon[np.isfinite(lon)])
+    # The largest gap between consecutive longitudes (going round the globe)
+    # lies outside the range
+    gaps = np.diff(np.append(lon, lon[0] + 360.0))
+    igap = np.argmax(gaps)
+    west = lon[(igap + 1) % len(lon)]
+    east = west + 360.0 - gaps[igap]
+    if west >= 180.0:
+        west -= 360.0
+        east -= 360.0
+    return [float(west), float(east)]
+
+
+def is_global_lon(lon: np.ndarray) -> bool:
+    """Return ``True`` if a regular longitude array covers the whole globe.
+
+    Parameters
+    ----------
+    lon : np.ndarray
+        Ascending, regularly spaced longitudes in degrees.
+
+    Returns
+    -------
+    bool
+        Whether the array (plus one grid cell) spans 360 degrees.
+    """
+    lon = np.asarray(lon)
+    if lon.size < 2:
+        return False
+    dlon = np.median(np.diff(lon))
+    return bool(lon[-1] - lon[0] + dlon >= 360.0 - 0.5 * abs(dlon))
+
+
+def lon_window(ds: xr.Dataset, west: float, east: float, buffer: int = 2) -> xr.Dataset:
+    """Return *ds* with ascending longitudes that continuously cover [west, east].
+
+    For a global dataset the longitudes are wrapped around (e.g. a 0-360 grid
+    cut to ``[-10, 10]`` or ``[170, 190]``), keeping *buffer* extra cells on
+    each side. A regional dataset is shifted by 360 degrees when that makes it
+    overlap the window better (e.g. a 0-360 grid used with ``[-190, -170]``).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset with an ascending 1-D ``lon`` coordinate.
+    west : float
+        Western longitude of the window.
+    east : float
+        Eastern longitude of the window (larger than *west*).
+    buffer : int, optional
+        Number of extra cells on each side for a global dataset. Default ``2``.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with continuous longitudes covering the window.
+    """
+    lon = ds["lon"].to_numpy()
+    if lon.size < 2:
+        return ds
+    if is_global_lon(lon):
+        # Repeat the globe as often as needed, then cut out the window
+        k0 = int(np.floor((west - lon[-1]) / 360.0))
+        k1 = int(np.ceil((east - lon[0]) / 360.0))
+        parts = [ds.assign_coords(lon=lon + 360.0 * k) for k in range(k0, k1 + 1)]
+        ds = xr.concat(parts, dim="lon")
+        # Drop duplicate longitudes (grids that include both 0 and 360)
+        _, iunique = np.unique(ds["lon"].to_numpy(), return_index=True)
+        ds = ds.isel(lon=iunique)
+        lon_slice = get_buffered_slice(ds["lon"].to_numpy(), west, east, buffer=buffer)
+        return ds.sel(lon=lon_slice)
+    # Regional dataset: shift by 360 degrees if that gives a larger overlap
+    overlaps = {
+        k: min(east, lon[-1] + 360.0 * k) - max(west, lon[0] + 360.0 * k)
+        for k in (-1, 0, 1)
+    }
+    k = max(overlaps, key=overlaps.get)
+    if k != 0 and overlaps[k] > overlaps[0]:
+        ds = ds.assign_coords(lon=lon + 360.0 * k)
+    return ds
