@@ -50,11 +50,6 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             print("Error: cycle_time not provided")
             return
 
-        lon0 = self.lon_range[0]
-        lon1 = self.lon_range[1]
-        if lon0 < 0.0 and lon1 < 0.0:
-            lon0 = lon0 + 360.0
-            lon1 = lon1 + 360.0
         lat0 = self.lat_range[0]
         lat1 = self.lat_range[1]
 
@@ -95,20 +90,21 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
             for param in param_list:
                 if param == "wind":
                     dau = ds0["u-component_of_wind_height_above_ground"]
-                    # Clip data to lon, lat range
+                    # Clip data to lon, lat range (the global 0-360 longitudes are
+                    # cut out continuously, also west of Greenwich or across the dateline)
                     dau = dau.sel(
                         lat=slice(lat1, lat0),
-                        lon=slice(lon0, lon1),
                         height_above_ground2=10.0,
                     )
+                    dau = self.clip_lon(dau)
 
                     dav = ds0["v-component_of_wind_height_above_ground"]
                     # Clip data to lon, lat range
                     dav = dav.sel(
                         lat=slice(lat1, lat0),
-                        lon=slice(lon0, lon1),
                         height_above_ground2=10.0,
                     )
+                    dav = self.clip_lon(dav)
 
                     # Drop the height_above_ground2 dimension
                     dau = dau.drop("height_above_ground2")
@@ -158,10 +154,7 @@ class MeteoDatasetGFSForecast0p25NCARArchive(MeteoDataset):
 
                     da = ds0[var_name]
                     # Clip data to lon, lat range
-                    da = da.sel(
-                        lat=slice(lat1, lat0),
-                        lon=slice(lon0, lon1),
-                    )
+                    da = self.clip_lon(da.sel(lat=slice(lat1, lat0)))
 
                     ds[param] = xr.DataArray(
                         # flip the lat dimension

@@ -12,7 +12,6 @@ from cht_meteo.dataset import (
     lon_window,
     normalize_lon_range,
 )
-from cht_meteo.gfs_forecast_0p25 import _to_requested_convention
 
 TIMES = pd.date_range("2026-01-01", periods=2, freq="3h")
 
@@ -130,16 +129,47 @@ def test_lon_window_drops_duplicate_seam():
     assert np.all(np.diff(out["lon"].to_numpy()) > 0)
 
 
-def test_gfs_longitudes_to_requested_convention():
-    # The THREDDS server returns 359..361 for a request of -1..1
-    np.testing.assert_allclose(
-        _to_requested_convention(np.array([359.0, 360.0, 361.0]), -1.0),
-        [-1.0, 0.0, 1.0],
-    )
-    np.testing.assert_allclose(
-        _to_requested_convention(np.array([179.0, 180.0, 181.0]), 179.0),
-        [179.0, 180.0, 181.0],
-    )
-    np.testing.assert_allclose(
-        _to_requested_convention(np.array([170.0, 190.0]), -190.0), [-190.0, -170.0]
-    )
+@pytest.mark.parametrize(
+    "server_lon, lon_range, expected",
+    [
+        # The GFS THREDDS server returns 359..361 for a request of -1..1
+        (np.arange(359.0, 361.01, 0.25), [-1.0, 1.0], (-1.0, 1.0)),
+        (np.arange(179.0, 181.01, 0.25), [179.0, -179.0], (179.0, 181.0)),
+        (np.arange(170.0, 190.01, 0.25), [-190.0, -170.0], (-190.0, -170.0)),
+    ],
+)
+def test_clip_lon_regional_server_response(server_lon, lon_range, expected):
+    reader = MeteoDataset(lon_range=lon_range)
+    out = reader.clip_lon(make_dataset(server_lon).ds)
+    lon = out["lon"].to_numpy()
+    assert lon[0] == pytest.approx(expected[0])
+    assert lon[-1] == pytest.approx(expected[1])
+
+
+@pytest.mark.parametrize("lon_range", [[170.0, -170.0], [-10.0, 10.0], [350.0, 370.0]])
+def test_clip_lon_global_dataarray(lon_range):
+    # As used by the readers on (lazily loaded) global 0-360 GFS fields
+    reader = MeteoDataset(lon_range=lon_range)
+    da = make_dataset(GLOBAL_0_360).ds["barometric_pressure"].isel(time=0)
+    out = reader.clip_lon(da)
+    lon = out["lon"].to_numpy()
+    west, east = normalize_lon_range(lon_range)
+    assert np.all(np.diff(lon) > 0)
+    assert lon[0] <= west and lon[-1] >= east and lon[-1] - lon[0] < 30.0
+    lon2, lat2 = np.meshgrid(lon, out["lat"].to_numpy())
+    np.testing.assert_allclose(out.to_numpy(), pressure(lon2, lat2), atol=1e-6)
+
+
+def test_clip_lon_with_other_coordinate_name():
+    reader = MeteoDataset(lon_range=[170.0, -170.0])
+    ds = make_dataset(GLOBAL_180).ds.rename({"lon": "longitude"})
+    out = reader.clip_lon(ds, lon_name="longitude")
+    lon = out["longitude"].to_numpy()
+    assert lon[0] <= 170.0 and lon[-1] >= 190.0
+
+
+def test_lon_window_selects_only_needed_columns():
+    # Global data is cut before joining, so the result is small (not 3 x global)
+    ds = make_dataset(GLOBAL_0_360).ds
+    out = lon_window(ds, 170.0, 190.0)
+    assert out.sizes["lon"] <= (190.0 - 170.0) / 0.25 + 1 + 2 * 2

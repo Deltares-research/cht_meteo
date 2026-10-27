@@ -128,9 +128,7 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                     lat = np.array(ds0["latitude"])
                     lat = np.flip(lat)
 
-                    ds["lon"] = _to_requested_convention(
-                        np.array(ds0["longitude"]), lon_range[0]
-                    )
+                    ds["lon"] = np.array(ds0["longitude"])
                     ds["lat"] = lat
 
                     if "time" in ds0:
@@ -194,9 +192,7 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
                 with xr.open_dataset(NetCDF4DataStore(ncss_data)) as ds0:
                     # Check if lon, lat and time are already in the dataset
                     if "lon" not in ds or "lat" not in ds or "time" not in ds:
-                        ds["lon"] = _to_requested_convention(
-                            np.array(ds0["longitude"]), lon_range[0]
-                        )
+                        ds["lon"] = np.array(ds0["longitude"])
                         lat = np.array(ds0["latitude"])
                         lat = np.flip(lat)
                         ds["lat"] = lat
@@ -224,32 +220,15 @@ class MeteoDatasetGFSForecast0p25(MeteoDataset):
 
                     ds[param] = xr.DataArray(v, dims=("time", "lat", "lon"))
 
+        # The server counts longitudes from 0 (e.g. 359 to 361 for a request of
+        # -1 to 1): express them in the convention of the requested range
+        ds = self.clip_lon(ds)
+
         write2nc(ds, self.name, os.path.join(self.path, cycle_name))
 
         ds.close()
 
         self.ds = ds
-
-
-def _to_requested_convention(lon: np.ndarray, west: float) -> np.ndarray:
-    """Shift server longitudes by a multiple of 360 to match the requested range.
-
-    The THREDDS server returns longitudes counted from 0, e.g. 359 to 361 for a
-    request of -1 to 1. Shift them so that they start near *west*.
-
-    Parameters
-    ----------
-    lon : np.ndarray
-        Ascending longitudes as returned by the server.
-    west : float
-        Western longitude of the requested range.
-
-    Returns
-    -------
-    np.ndarray
-        Longitudes in the convention of the requested range.
-    """
-    return lon - 360.0 * np.round((lon[0] - west) / 360.0)
 
 
 def write2nc(ds: xr.Dataset, meteo_name: str, meteo_path: str) -> None:

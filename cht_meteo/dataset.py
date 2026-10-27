@@ -803,6 +803,35 @@ class MeteoDataset:
 
         return dataset
 
+    def clip_lon(self, ds, lon_name: str = "lon"):
+        """Cut the longitude range of this dataset (``self.lon_range``) out of *ds*.
+
+        Used by the source readers after downloading. The longitudes of the
+        result are continuous over the requested range, in the convention of
+        that range, also when it lies west of Greenwich or crosses the dateline.
+
+        Parameters
+        ----------
+        ds : xr.Dataset or xr.DataArray
+            Data with an ascending 1-D longitude coordinate.
+        lon_name : str, optional
+            Name of the longitude coordinate in *ds*. Default ``"lon"``.
+
+        Returns
+        -------
+        xr.Dataset or xr.DataArray
+            Data covering ``self.lon_range``.
+        """
+        if self.lon_range is None:
+            return ds
+        west, east = normalize_lon_range(self.lon_range)
+        if lon_name != "lon":
+            ds = ds.rename({lon_name: "lon"})
+        ds = lon_window(ds, west, east)
+        if lon_name != "lon":
+            ds = ds.rename({"lon": lon_name})
+        return ds
+
     def _lon_windowed(self, west: float, east: float) -> "MeteoDataset":
         """Return a shallow copy whose longitudes are continuous over [west, east].
 
@@ -1331,8 +1360,8 @@ def lon_window(ds: xr.Dataset, west: float, east: float, buffer: int = 2) -> xr.
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Dataset with an ascending 1-D ``lon`` coordinate.
+    ds : xr.Dataset or xr.DataArray
+        Data with an ascending 1-D ``lon`` coordinate (may be lazily loaded).
     west : float
         Western longitude of the window.
     east : float
@@ -1342,23 +1371,34 @@ def lon_window(ds: xr.Dataset, west: float, east: float, buffer: int = 2) -> xr.
 
     Returns
     -------
-    xr.Dataset
-        Dataset with continuous longitudes covering the window.
+    xr.Dataset or xr.DataArray
+        Data with continuous longitudes covering the window.
     """
     lon = ds["lon"].to_numpy()
     if lon.size < 2:
         return ds
     if is_global_lon(lon):
-        # Repeat the globe as often as needed, then cut out the window
-        k0 = int(np.floor((west - lon[-1]) / 360.0))
-        k1 = int(np.ceil((east - lon[0]) / 360.0))
-        parts = [ds.assign_coords(lon=lon + 360.0 * k) for k in range(k0, k1 + 1)]
-        ds = xr.concat(parts, dim="lon")
+        # Take the part of the window from each copy of the globe (shifted by a
+        # multiple of 360 degrees) and join them. Only the needed columns are
+        # selected before joining, so lazily loaded (remote) data is not read in full.
+        dlon = abs(np.median(np.diff(lon)))
+        west_b = west - buffer * dlon
+        east_b = east + buffer * dlon
+        k0 = int(np.floor((west_b - lon[-1]) / 360.0))
+        k1 = int(np.ceil((east_b - lon[0]) / 360.0))
+        parts = []
+        for k in range(k0, k1 + 1):
+            shifted = lon + 360.0 * k
+            idx = np.where((shifted >= west_b) & (shifted <= east_b))[0]
+            if idx.size > 0:
+                part = ds.isel(lon=slice(idx[0], idx[-1] + 1))
+                parts.append(part.assign_coords(lon=shifted[idx[0] : idx[-1] + 1]))
+        ds = parts[0] if len(parts) == 1 else xr.concat(parts, dim="lon")
         # Drop duplicate longitudes (grids that include both 0 and 360)
         _, iunique = np.unique(ds["lon"].to_numpy(), return_index=True)
-        ds = ds.isel(lon=iunique)
-        lon_slice = get_buffered_slice(ds["lon"].to_numpy(), west, east, buffer=buffer)
-        return ds.sel(lon=lon_slice)
+        if len(iunique) < ds.sizes["lon"]:
+            ds = ds.isel(lon=iunique)
+        return ds
     # Regional dataset: shift by 360 degrees if that gives a larger overlap
     overlaps = {
         k: min(east, lon[-1] + 360.0 * k) - max(west, lon[0] + 360.0 * k)

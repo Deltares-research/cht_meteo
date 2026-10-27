@@ -43,14 +43,9 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
 
         toldnew = datetime(2020, 5, 15, 0, 0, 0, 0)
 
-        lon_range = self.lon_range
         lat_range = self.lat_range
-        # GFS longitude is defined in degrees east (0 - 360)
-        # If the lon_range is defined in degrees west (-180 - 180), we need to convert it
-        londeg = "east"
-        if lon_range[0] < 0:
-            londeg = "west"
-            lon_range = (360.0 + lon_range[0], 360.0 + lon_range[1])
+        # GFS longitudes run from 0 to 360; clip_lon cuts out self.lon_range
+        # continuously in its own convention (also across the dateline)
 
         icont = False
 
@@ -93,22 +88,10 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                     # Latitude and longitude
 
                     # Data will be stored in ascending lat order !
-                    lon = ds0.lon.to_numpy()[:]
+                    lon = self.clip_lon(ds0.lon).to_numpy()
                     lat = ds0.lat.to_numpy()[:]
 
-                    # Get lat, lon indices
-
-                    j1 = np.where(lon < lon_range[0])[0]
-                    if len(j1) > 0:
-                        j1 = j1[-1]
-                    else:
-                        j1 = 0
-
-                    j2 = np.where(lon > lon_range[1])[0]
-                    if len(j2) > 0:
-                        j2 = j2[0]
-                    else:
-                        j2 = len(lon)
+                    # Get lat indices
 
                     i1 = np.where(lat > lat_range[1])[0]
                     if len(i1) > 0:
@@ -122,18 +105,14 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                     else:
                         i2 = len(lat)
 
-                    if i2 <= i1 or j2 <= j1:
+                    if i2 <= i1 or len(lon) == 0:
                         print("Error: cut-out is empty with given x_range and y_range")
                         return
 
-                    # Latitude and longitude
+                    # Latitude
                     lat = lat[i1:i2]
-                    lon = lon[j1:j2]
 
                     lat = np.flip(lat)
-
-                    if londeg == "west":
-                        lon = lon - 360.0
 
                     # Latitude and longitude found, so we can stop now
                     icont = True
@@ -228,12 +207,16 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
 
                     if ds0:
                         if param == "wind":
-                            u = ds0["u-component_of_wind_height_above_ground"][
-                                0, 0, i1:i2, j1:j2
-                            ].to_numpy()
-                            v = ds0["v-component_of_wind_height_above_ground"][
-                                0, 0, i1:i2, j1:j2
-                            ].to_numpy()
+                            u = self.clip_lon(
+                                ds0["u-component_of_wind_height_above_ground"][
+                                    0, 0, i1:i2, :
+                                ]
+                            ).to_numpy()
+                            v = self.clip_lon(
+                                ds0["v-component_of_wind_height_above_ground"][
+                                    0, 0, i1:i2, :
+                                ]
+                            ).to_numpy()
 
                             u = np.flip(u, axis=0)
                             v = np.flip(v, axis=0)
@@ -248,7 +231,7 @@ class MeteoDatasetGFSAnalysis0p50(MeteoDataset):
                             elif param == "precipitation":
                                 var_name = var_prcp
 
-                            val = ds0[var_name][0, i1:i2, j1:j2].to_numpy()
+                            val = self.clip_lon(ds0[var_name][0, i1:i2, :]).to_numpy()
                             val = np.flip(val, axis=0)
 
                             if param == "precipitation":
